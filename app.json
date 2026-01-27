@@ -24,6 +24,15 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "6df93f40-d7bf-440d-993e-9470da797545"
+      }
+    },
+    "owner": "trimax",
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
   }
 }
