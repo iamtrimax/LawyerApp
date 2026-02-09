@@ -21,7 +21,8 @@ import {
     Filter,
     BookOpen,
     ExternalLink,
-    Plus
+    Plus,
+    Lock
 } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import summaryAPI from '../common';
@@ -31,6 +32,7 @@ export default function LegalLibraryScreen() {
     const navigation = useNavigation();
     const [forms, setForms] = useState([]);
     const [loading, setLoading] = useState(true);
+const { user } = useAuth();
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -115,7 +117,17 @@ export default function LegalLibraryScreen() {
         }
     };
 
+    const isMemberOrLawyer = user?.role === 'member' || user?.role === 'lawyer';
     const handleDownload = (url) => {
+        if (!isMemberOrLawyer) {
+            Alert.alert(
+                "Thông báo",
+                "Tài liệu này chỉ dành riêng cho tài khoản Thành viên.",
+                [{ text: "Đóng", style: "cancel" }]
+            );
+            return;
+        }
+
         if (url) {
             Linking.openURL(url).catch(err => {
                 console.error("Link Error:", err);
@@ -144,9 +156,6 @@ export default function LegalLibraryScreen() {
                 <Text style={tw`text-base font-bold text-slate-800 mb-1`} numberOfLines={1}>
                     {item.name}
                 </Text>
-                <Text style={tw`text-slate-500 text-xs mb-2`} numberOfLines={2}>
-                    {item.description}
-                </Text>
                 <View style={tw`flex-row items-center`}>
                     <View style={tw`bg-blue-50 px-1.5 py-0.5 rounded flex-row items-center`}>
                         <Text style={tw`text-blue-600 text-[10px] font-bold`}>{item.fileType || 'DOCX'}</Text>
@@ -164,9 +173,13 @@ export default function LegalLibraryScreen() {
 
             <TouchableOpacity
                 onPress={() => handleDownload(item.fileUrl)}
-                style={tw`ml-4 bg-indigo-600 p-3 rounded-full shadow-md`}
+                style={tw`ml-4 ${isMemberOrLawyer ? 'bg-indigo-600' : 'bg-slate-400'} p-3 rounded-full shadow-md`}
             >
-                <Download size={20} color="white" />
+                {isMemberOrLawyer ? (
+                    <Download size={20} color="white" />
+                ) : (
+                    <Lock size={20} color="white" />
+                )}
             </TouchableOpacity>
         </TouchableOpacity>
     );
@@ -194,7 +207,6 @@ export default function LegalLibraryScreen() {
         );
     };
 
-    const { user } = useAuth();
 
     return (
         <SafeAreaView style={tw`flex-1 bg-slate-50`}>

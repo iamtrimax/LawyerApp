@@ -120,7 +120,9 @@ export default function UserProfileScreen({ navigation }) {
                     </View>
                     <Text style={tw`mt-3 text-xl font-bold text-slate-800`}>{user?.fullname}</Text>
                     <View style={tw`mt-1 bg-blue-50 px-3 py-1 rounded-full`}>
-                        <Text style={tw`text-blue-600 text-xs font-bold uppercase tracking-wider`}>{user?.role}</Text>
+                        <Text style={tw`text-blue-600 text-xs font-bold uppercase tracking-wider`}>
+                            {user?.role === 'lawyer' ? 'Luật sư' : user?.role === 'member' ? 'Thành viên' : 'Khách hàng'}
+                        </Text>
                     </View>
                 </View>
 
@@ -158,13 +160,24 @@ export default function UserProfileScreen({ navigation }) {
                     <InfoRow
                         icon={Shield}
                         label="Vai trò"
-                        value={user?.role === 'lawyer' ? 'Luật sư' : 'Khách hàng'}
+                        value={user?.role === 'lawyer' ? 'Luật sư' : user?.role === 'member' ? 'Thành viên' : 'Khách hàng'}
                         editable={false}
                         isEditing={isEditing}
                         formData={formData}
                         setFormData={setFormData}
                     />
                 </View>
+
+                {/* Nâng cấp tài khoản link (chỉ dành cho Member) */}
+                {!isEditing && user?.role === 'member' && (
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate("LawyerUpgrade")}
+                        style={tw`mt-4 flex-row items-center justify-center p-4 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200`}
+                    >
+                        <Shield size={20} color="white" />
+                        <Text style={tw`ml-2 text-white font-bold`}>Nâng cấp lên Luật sư cộng tác</Text>
+                    </TouchableOpacity>
+                )}
 
                 {/* Đổi mật khẩu link */}
                 {!isEditing && (

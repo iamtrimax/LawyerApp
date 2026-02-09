@@ -1,4 +1,5 @@
 const url_api = process.env.EXPO_PUBLIC_API_URL;
+const socket_url = url_api; // Use the same host for WebSocket
 
 const summaryAPI = {
   verifyEmail: {
@@ -152,7 +153,12 @@ const summaryAPI = {
   cancelBooking: {
     url: `${url_api}/api/booking/cancel/:bookingId`,
     method: "POST",
-  }
+  },
+  AISearch: {
+    url: `${url_api}/api/articles/ai-search`,
+    method: "GET",
+  },
 };
 
+export { socket_url };
 export default summaryAPI;

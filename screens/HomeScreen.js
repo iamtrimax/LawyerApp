@@ -19,6 +19,9 @@ import {
   FileTextIcon,
   Globe,
   MessageSquare,
+  ShieldCheck,
+  Sparkles,
+  ChevronRight,
 } from "lucide-react-native";
 
 // Import các component đã tạo ở trên
@@ -27,11 +30,11 @@ import BlockControl from "../components/BlockControl";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../contextAPI/AuthProvider";
 import { registerForPushNotificationsAsync } from "../helper/registerForPushNotificationsAsync";
-import summaryAPI from "../common";
+import summaryAPI, { socket_url } from "../common";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { io } from "socket.io-client";
 
-const SOCKET_URL = summaryAPI.getConversations.url.split('/api')[0];
+const SOCKET_URL = socket_url;
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -133,23 +136,58 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={tw`mt-5 pb-10`}
         >
-          {(!isAuthenticated || user?.role === "customer") && (
+          {/* KHỐI KHÁCH HÀNG & THÀNH VIÊN */}
+          {(!isAuthenticated || user?.role === "customer" || user?.role === "member") && (
             <>
               {/* 2. Phần chào hỏi người dùng */}
-              <View style={tw`p-4 pt-6`}>
-                <Text style={tw`text-2xl font-bold text-gray-900`}>
-                  Xin chào!
-                </Text>
-                <Text style={tw`text-gray-500`}>
-                  Hôm nay chúng tôi có thể giúp gì cho bạn?
-                </Text>
+              <View style={tw`px-4 pt-6 flex-row items-center justify-between`}>
+                <View style={tw`flex-1`}>
+                  <Text style={tw`text-2xl font-black text-blue-950`}>
+                    {user?.role === "member" ? "Chào Thành viên!" : "Xin chào!"}
+                  </Text>
+                  <Text style={tw`text-slate-500 font-medium mt-1`}>
+                    {user?.role === "member"
+                      ? "Bạn có các dịch vụ đặc quyền hôm nay."
+                      : "Hôm nay chúng tôi có thể giúp gì cho bạn?"}
+                  </Text>
+                </View>
+                {user?.role === "member" && (
+                  <View style={tw`bg-blue-600/10 px-3 py-1.5 rounded-2xl border border-blue-200 flex-row items-center`}>
+                    <ShieldCheck size={16} color="#2563EB" />
+                    <Text style={tw`ml-1.5 text-blue-700 font-bold text-xs uppercase tracking-wider`}>Thành viên</Text>
+                  </View>
+                )}
               </View>
 
-              {/* 3. KHỐI KHÁCH HÀNG (Dạng GRID) */}
-              <View style={tw`px-4 mt-2`}>
-                <View style={tw`flex-row items-center justify-between mb-4`}>
-                  <Text style={tw`text-lg font-bold text-gray-800`}>
-                    Dịch vụ của bạn
+              {/* Banner Nâng cấp (Chỉ dành cho Member) */}
+              {user?.role === "member" && (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("LawyerUpgrade")}
+                  style={tw`mx-4 mt-6 bg-blue-600 rounded-3xl p-5 shadow-xl shadow-blue-300 relative overflow-hidden`}
+                >
+                  <View style={tw`absolute -right-4 -top-4 bg-white/10 w-24 h-24 rounded-full`} />
+                  <View style={tw`absolute -left-2 -bottom-2 bg-white/10 w-16 h-16 rounded-full`} />
+
+                  <View style={tw`flex-row items-center justify-between`}>
+                    <View style={tw`flex-1`}>
+                      <View style={tw`flex-row items-center mb-1`}>
+                        <Sparkles size={16} color="white" fill="white" />
+                        <Text style={tw`ml-2 text-white/80 font-bold text-[10px] uppercase tracking-widest`}>Cơ hội nghề nghiệp</Text>
+                      </View>
+                      <Text style={tw`text-white font-black text-xl leading-tight`}>Nâng cấp trở thành Luật sư cộng tác</Text>
+                    </View>
+                    <View style={tw`bg-white/20 p-2 rounded-xl`}>
+                      <ChevronRight size={24} color="white" />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              )}
+
+              {/* 3. KHỐI GRID DỊCH VỤ */}
+              <View style={tw`px-4 mt-8`}>
+                <View style={tw`flex-row items-center justify-between mb-5 px-1`}>
+                  <Text style={tw`text-lg font-black text-blue-950`}>
+                    {user?.role === "member" ? "Dịch vụ đặc quyền" : "Dịch vụ của bạn"}
                   </Text>
                 </View>
 

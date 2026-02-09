@@ -27,9 +27,10 @@ export default function LoginScreen({ navigation }) {
   const [serverError, setServerError] = useState("");
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState("customer"); // Default role
   const { login } = useAuth();
 
-  const handleInputChange = createInputChangeHandler(user, setUser, errors, setErrors);
+  const handleInputChange = createInputChangeHandler(setUser, setErrors);
   const handleLogin = async () => {
     if (!validateForm()) return;
 
@@ -41,7 +42,7 @@ export default function LoginScreen({ navigation }) {
         body: JSON.stringify({
           email: user.email,
           password: user.password,
-          role: "customer"
+          role: role
         }),
       });
 
@@ -89,14 +90,29 @@ export default function LoginScreen({ navigation }) {
             <ArrowLeft size={24} color="#374151" />
           </TouchableOpacity>
 
-          {/* Header Chào mừng */}
-          <View style={tw`mt-8 mb-10`}>
+          <View style={tw`mt-8 mb-6`}>
             <Text style={tw`text-3xl font-extrabold text-blue-800`}>
               Chào mừng trở lại!
             </Text>
             <Text style={tw`text-gray-500 mt-2 text-base`}>
               Đăng nhập để tiếp tục kết nối với các luật sư hàng đầu.
             </Text>
+          </View>
+
+          {/* Role Selector */}
+          <View style={tw`flex-row bg-white/50 p-1 rounded-2xl mb-8 border border-blue-100`}>
+            <TouchableOpacity
+              onPress={() => setRole("customer")}
+              style={tw`flex-1 py-3 rounded-xl items-center ${role === "customer" ? 'bg-blue-600 shadow-sm' : ''}`}
+            >
+              <Text style={tw`font-bold ${role === "customer" ? 'text-white' : 'text-blue-700'}`}>Khách hàng</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setRole("member")}
+              style={tw`flex-1 py-3 rounded-xl items-center ${role === "member" ? 'bg-blue-600 shadow-sm' : ''}`}
+            >
+              <Text style={tw`font-bold ${role === "member" ? 'text-white' : 'text-blue-700'}`}>Thành viên</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Form Nhập liệu */}
@@ -166,7 +182,13 @@ export default function LoginScreen({ navigation }) {
           <View style={tw`flex-row justify-center mt-10 mb-6`}>
             <Text style={tw`text-gray-500`}>Chưa có tài khoản? </Text>
             <TouchableOpacity
-              onPress={() => navigation.navigate("SignUp", { navigation })}
+              onPress={() => {
+                if (role === 'member') {
+                  navigation.navigate("MemberSignUp");
+                } else {
+                  navigation.navigate("SignUp");
+                }
+              }}
             >
               <Text style={tw`text-blue-700 font-bold`}>Đăng ký ngay</Text>
             </TouchableOpacity>

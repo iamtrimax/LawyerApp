@@ -83,12 +83,9 @@ export default function PaymentScreen({ navigation, route }) {
 
 
     useEffect(() => {
-        // Fix URL (remove space) and add extra config for ngrok
-        const socket = io("https://faee315be7ef.ngrok-free.app", {
+        // Use the IP address provided by the user
+        const socket = io("http://98.89.3.141", {
             transports: ['websocket'], // Force websocket for better reliability in RN
-            extraHeaders: {
-                "ngrok-skip-browser-warning": "true" // Bypass ngrok warning page
-            }
         });
 
         socket.on("connect", () => {

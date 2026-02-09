@@ -13,12 +13,12 @@ import tw from 'twrnc';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { MessageSquare, ArrowLeft, Search, Clock, User } from 'lucide-react-native';
 import { useAuth } from '../contextAPI/AuthProvider';
-import summaryAPI from '../common';
+import summaryAPI, { socket_url } from '../common';
 import moment from 'moment';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = summaryAPI.getConversations.url.split('/api')[0];
+const SOCKET_URL = socket_url;
 
 export default function ChatListScreen() {
     const navigation = useNavigation();

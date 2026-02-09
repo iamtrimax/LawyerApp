@@ -26,12 +26,7 @@ export default function LawerLoginScreen({ navigation }) {
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState([]);
-  const handleInputChange = createInputChangeHandler(
-    user,
-    setUser,
-    errors,
-    setErrors
-  );
+  const handleInputChange = createInputChangeHandler(setUser, setErrors);
   const [serverError, setServerError] = useState("");
   const [showErrorModal, setShowErrorModal] = useState(false);
   const validateForm = () => {

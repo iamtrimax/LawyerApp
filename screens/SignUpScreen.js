@@ -40,7 +40,7 @@ export default function SignUpScreen({ navigation }) {
   const [serverError, setServerError] = useState("");
   const [showErrorModal, setShowErrorModal] = useState(false);
 
-  const handleInputChange = createInputChangeHandler(user, setUser, errors, setErrors);
+  const handleInputChange = createInputChangeHandler(setUser, setErrors);
   // --- Logic Xử lý ---
 
   const validateForm = () => {
@@ -183,9 +183,8 @@ export default function SignUpScreen({ navigation }) {
           <TouchableOpacity
             disabled={!isAgreed || loading}
             onPress={handleRegister}
-            style={tw`${
-              isAgreed ? "bg-blue-600" : "bg-gray-300"
-            } h-14 rounded-2xl items-center justify-center mt-8 shadow-lg shadow-blue-200`}
+            style={tw`${isAgreed ? "bg-blue-600" : "bg-gray-300"
+              } h-14 rounded-2xl items-center justify-center mt-8 shadow-lg shadow-blue-200`}
           >
             {loading ? (
               <ActivityIndicator color="white" />
@@ -204,12 +203,12 @@ export default function SignUpScreen({ navigation }) {
       </KeyboardAvoidingView>
 
       {/* --- Error Modal --- */}
-    <ModalError
-      showErrorModal={showErrorModal}
-      setShowErrorModal={setShowErrorModal}
-      serverError={serverError}
-      typeError="Lỗi đăng ký"
-    />
+      <ModalError
+        showErrorModal={showErrorModal}
+        setShowErrorModal={setShowErrorModal}
+        serverError={serverError}
+        typeError="Lỗi đăng ký"
+      />
     </SafeAreaView>
   );
 }

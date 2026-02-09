@@ -17,12 +17,12 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { ArrowLeft, Send, Paperclip, User, Phone, Info } from 'lucide-react-native';
 import { io } from 'socket.io-client';
 import { useAuth } from '../contextAPI/AuthProvider';
-import summaryAPI from '../common';
+import summaryAPI, { socket_url } from '../common';
 import moment from 'moment';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Get base URL from common/index.js (implicitly via summaryAPI)
-const SOCKET_URL = summaryAPI.getConversations.url.split('/api')[0];
+// Get base URL from common/index.js
+const SOCKET_URL = socket_url;
 
 export default function ChatDetailScreen() {
     const navigation = useNavigation();

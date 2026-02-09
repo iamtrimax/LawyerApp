@@ -1,0 +1,13 @@
+{
+  "build": {
+    "development": {
+      "ios": {
+        "simulator": false,
+        "distribution": "internal"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    }
+  }
+}

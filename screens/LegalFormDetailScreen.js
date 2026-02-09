@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
@@ -11,6 +11,7 @@ import {
     Share
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
 import tw from 'twrnc';
 import {
     ArrowLeft,
@@ -23,7 +24,8 @@ import {
     CheckCircle2,
     BookOpen,
     Trash2,
-    Edit
+    Edit,
+    Lock
 } from 'lucide-react-native';
 import moment from 'moment';
 import summaryAPI from '../common';
@@ -35,6 +37,7 @@ export default function LegalFormDetailScreen({ navigation, route }) {
     const { form: initialForm } = route.params;
     const [form, setForm] = useState(initialForm);
     const [loading, setLoading] = useState(false);
+    const [webViewHeight, setWebViewHeight] = useState(100);
     const { user } = useAuth();
     const isOwner = user?.role === 'lawyer' && user?._id === form?.lawyerID?.userID?._id
 
@@ -63,7 +66,18 @@ export default function LegalFormDetailScreen({ navigation, route }) {
         console.log("isOwner", isOwner)
     );
 
+    const isMemberOrLawyer = user?.role === 'member' || user?.role === 'partner_lawyer';
+
     const handleDownload = () => {
+        if (!isMemberOrLawyer) {
+            Alert.alert(
+                "Thông báo",
+                "Tài liệu này chỉ dành riêng cho tài khoản Thành viên.",
+                [{ text: "Đóng", style: "cancel" }]
+            );
+            return;
+        }
+
         if (form?.fileUrl) {
             Linking.openURL(form.fileUrl).catch(err => {
                 console.error("Link Error:", err);
@@ -82,6 +96,66 @@ export default function LegalFormDetailScreen({ navigation, route }) {
             console.error("Share Error:", error);
         }
     };
+
+    const onMessage = (event) => {
+        const height = Number(event.nativeEvent.data);
+        if (height) setWebViewHeight(height);
+    };
+
+    const htmlContent = useMemo(() => {
+        if (!form || !form.description) return '';
+
+        return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <style>
+                body { font-family: -apple-system, sans-serif; line-height: 1.6; color: #334155; padding: 0; margin: 0; overflow: hidden; }
+                img { max-width: 100%; height: auto; border-radius: 12px; margin-top: 15px; margin-bottom: 15px; display: block; }
+                p { margin-bottom: 15px; }
+                p:last-child { margin-bottom: 0; }
+                h2 { color: #1e293b; margin-top: 25px; border-left: 4px solid #6366F1; padding-left: 10px; font-size: 1.4em; }
+                h2:last-child { margin-bottom: 0; }
+                h3 { color: #1e293b; margin-top: 20px; font-size: 1.2em; }
+                h3:last-child { margin-bottom: 0; }
+                b { color: #0f172a; }
+                ul { padding-left: 20px; margin-bottom: 15px; }
+                ul:last-child { margin-bottom: 0; }
+                li { margin-bottom: 5px; }
+                #content-wrapper { padding: 10px; }
+            </style>
+        </head>
+        <body>
+            <div id="content-wrapper">
+                ${form.description}
+            </div>
+            <script>
+                function sendHeight() {
+                    const wrapper = document.getElementById('content-wrapper');
+                    if (wrapper) {
+                        const height = wrapper.offsetHeight;
+                        window.ReactNativeWebView.postMessage(height);
+                    }
+                }
+
+                window.onload = function() {
+                    sendHeight();
+                    let interval = setInterval(sendHeight, 250);
+                    setTimeout(() => clearInterval(interval), 5000);
+                };
+
+                document.querySelectorAll('img').forEach(img => {
+                    img.addEventListener('load', sendHeight);
+                });
+
+                const observer = new MutationObserver(sendHeight);
+                observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+            </script>
+        </body>
+        </html>
+        `;
+    }, [form?.description]);
 
     const handleDelete = () => {
         Alert.alert(
@@ -183,9 +257,23 @@ export default function LegalFormDetailScreen({ navigation, route }) {
                             <Info size={18} color="#6366F1" />
                             <Text style={tw`text-lg font-bold text-slate-800 ml-2`}>Mô tả chi tiết</Text>
                         </View>
-                        <Text style={tw`text-slate-600 leading-6 text-base`}>
-                            {form.description || "Chưa có mô tả chi tiết cho biểu mẫu này."}
-                        </Text>
+                        {form.description ? (
+                            <View style={{ height: webViewHeight, overflow: 'hidden' }}>
+                                <WebView
+                                    originWhitelist={['*']}
+                                    source={{ html: htmlContent }}
+                                    style={tw`flex-1 bg-transparent`}
+                                    scrollEnabled={false}
+                                    onMessage={onMessage}
+                                    javaScriptEnabled={true}
+                                    showsVerticalScrollIndicator={false}
+                                />
+                            </View>
+                        ) : (
+                            <Text style={tw`text-slate-600 leading-6 text-base`}>
+                                Chưa có mô tả chi tiết cho biểu mẫu này.
+                            </Text>
+                        )}
                     </View>
 
                     {/* Features List */}
@@ -226,13 +314,26 @@ export default function LegalFormDetailScreen({ navigation, route }) {
                             style={tw`flex-row items-center bg-slate-50 p-4 rounded-2xl border border-slate-200`}
                         >
                             <View style={tw`bg-indigo-100 p-2 rounded-lg`}>
-                                <FileText size={20} color="#4F46E5" />
+                                <FileText size={20} color={isMemberOrLawyer ? "#4F46E5" : "#94A3B8"} />
                             </View>
                             <View style={tw`ml-3 flex-1`}>
                                 <Text style={tw`text-slate-800 font-medium mb-1`} numberOfLines={1}>{form.name}</Text>
-                                <Text style={tw`text-slate-500 text-xs`}>Định dạng {form.fileType || 'DOCX'}</Text>
+                                <View style={tw`flex-row items-center`}>
+                                    <Text style={tw`text-slate-500 text-xs`}>Định dạng {form.fileType || 'DOCX'}</Text>
+                                    {!isMemberOrLawyer && (
+                                        <View style={tw`flex-row items-center ml-2`}>
+                                            <View style={tw`w-1 h-1 rounded-full bg-slate-300 mx-1`} />
+                                            <Lock size={10} color="#94A3B8" />
+                                            <Text style={tw`text-[10px] text-slate-400 font-bold uppercase ml-1`}>Member Only</Text>
+                                        </View>
+                                    )}
+                                </View>
                             </View>
-                            <Download size={20} color="#64748B" />
+                            {isMemberOrLawyer ? (
+                                <Download size={20} color="#64748B" />
+                            ) : (
+                                <Lock size={20} color="#94A3B8" />
+                            )}
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -242,11 +343,18 @@ export default function LegalFormDetailScreen({ navigation, route }) {
             <View style={tw`p-6 border-t border-slate-100 bg-white`}>
                 <TouchableOpacity
                     onPress={handleDownload}
-                    style={tw`bg-indigo-600 py-4 rounded-2xl flex-row items-center justify-center shadow-lg`}
+                    style={[
+                        tw`py-4 rounded-2xl flex-row items-center justify-center shadow-lg`,
+                        isMemberOrLawyer ? tw`bg-indigo-600` : tw`bg-slate-400`
+                    ]}
                 >
-                    <Download size={22} color="white" />
+                    {isMemberOrLawyer ? (
+                        <Download size={22} color="white" />
+                    ) : (
+                        <Lock size={22} color="white" />
+                    )}
                     <Text style={tw`text-white font-bold text-lg ml-3`}>
-                        {form.isFree ? "Tải xuống ngay" : "Tải biểu mẫu"}
+                        {isMemberOrLawyer ? (form.isFree ? "Tải xuống ngay" : "Tải biểu mẫu") : "Dành cho Thành viên"}
                     </Text>
                 </TouchableOpacity>
             </View>

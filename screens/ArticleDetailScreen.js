@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
-import { ArrowLeft, User, Clock, Share2, Tag, Paperclip, FileText, ExternalLink, Trash2, Edit } from 'lucide-react-native';
+import { ArrowLeft, User, Clock, Share2, Tag, Paperclip, FileText, ExternalLink, Trash2, Edit, Lock } from 'lucide-react-native';
 import { WebView } from 'react-native-webview';
 import moment from 'moment';
 import { useAuth } from '../contextAPI/AuthProvider';
@@ -232,23 +232,51 @@ export default function ArticleDetailScreen({ navigation, route }) {
                                 <Text style={tw`ml-2 font-bold text-slate-800`}>Tài liệu đính kèm</Text>
                             </View>
 
-                            {article.attachments.map((doc, idx) => (
-                                <TouchableOpacity
-                                    key={idx}
-                                    onPress={() => doc?.url && openLink(doc.url)}
-                                    style={tw`flex-row items-center justify-between py-3 ${idx !== article.attachments.length - 1 ? 'border-b border-slate-200' : ''}`}
-                                >
-                                    <View style={tw`flex-row items-center flex-1 mr-4`}>
-                                        <View style={tw`bg-white p-2 rounded-xl border border-slate-100`}>
-                                            <FileText size={20} color="#2563EB" />
+                            {article.attachments.map((doc, idx) => {
+                                const isMemberOrLawyer = user?.role === 'member' || user?.role === 'partner_lawyer';
+
+                                const handleAttachmentPress = () => {
+                                    if (!isMemberOrLawyer) {
+                                        Alert.alert(
+                                            "Thông báo",
+                                            "Tài liệu này chỉ dành riêng cho tài khoản Thành viên.",
+                                            [{ text: "Đóng", style: "cancel" }]
+                                        );
+                                        return;
+                                    }
+                                    if (doc?.url) openLink(doc.url);
+                                };
+
+                                return (
+                                    <TouchableOpacity
+                                        key={idx}
+                                        onPress={handleAttachmentPress}
+                                        style={tw`flex-row items-center justify-between py-3 ${idx !== article.attachments.length - 1 ? 'border-b border-slate-200' : ''}`}
+                                    >
+                                        <View style={tw`flex-row items-center flex-1 mr-4`}>
+                                            <View style={tw`bg-white p-2 rounded-xl border border-slate-100`}>
+                                                <FileText size={20} color={isMemberOrLawyer ? "#2563EB" : "#94A3B8"} />
+                                            </View>
+                                            <View style={tw`ml-3 flex-1`}>
+                                                <Text style={tw`text-slate-700 text-sm font-medium`} numberOfLines={1}>
+                                                    {doc?.name || `Tài liệu ${idx + 1}`}
+                                                </Text>
+                                                {!isMemberOrLawyer && (
+                                                    <View style={tw`flex-row items-center mt-0.5`}>
+                                                        <Lock size={10} color="#94A3B8" />
+                                                        <Text style={tw`text-[10px] text-slate-400 font-bold uppercase ml-1`}>Dành cho Thành viên</Text>
+                                                    </View>
+                                                )}
+                                            </View>
                                         </View>
-                                        <Text style={tw`text-slate-700 text-sm ml-3 font-medium`} numberOfLines={1}>
-                                            {doc?.name || `Tài liệu ${idx + 1}`}
-                                        </Text>
-                                    </View>
-                                    <ExternalLink size={16} color="#94A3B8" />
-                                </TouchableOpacity>
-                            ))}
+                                        {isMemberOrLawyer ? (
+                                            <ExternalLink size={16} color="#94A3B8" />
+                                        ) : (
+                                            <Lock size={16} color="#94A3B8" />
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </View>
                     ) : null}
                 </View>

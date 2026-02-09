@@ -31,6 +31,8 @@ import UserProfileScreen from "../screens/UserProfileScreen";
 import ChangePasswordScreen from "../screens/ChangePasswordScreen";
 import ResetPasswordScreen from "../screens/ResetPasswordScreen";
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
+import MemberSignUpScreen from "../screens/MemberSignUpScreen";
+import LawyerUpgradeScreen from "../screens/LawyerUpgradeScreen";
 const stack = createNativeStackNavigator();
 export default function AppNavigation() {
   return (
@@ -186,6 +188,16 @@ export default function AppNavigation() {
             name="ForgotPassword"
             options={{ headerShown: false }}
             component={ForgotPasswordScreen}
+          />
+          <stack.Screen
+            name="MemberSignUp"
+            options={{ headerShown: false }}
+            component={MemberSignUpScreen}
+          />
+          <stack.Screen
+            name="LawyerUpgrade"
+            options={{ headerShown: false }}
+            component={LawyerUpgradeScreen}
           />
         </stack.Navigator>
       </SafeAreaProvider>

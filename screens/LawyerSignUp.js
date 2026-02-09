@@ -52,12 +52,7 @@ export default function LawyerSignUp({ navigation }) {
   const [serverError, setServerError] = useState("");
 
   const specialties = ["Hình sự", "Dân sự", "Đất đai", "Kinh tế", "Hôn nhân"];
-  const handleInputChange = createInputChangeHandler(
-    user,
-    setUser,
-    errors,
-    setErrors
-  );
+  const handleInputChange = createInputChangeHandler(setUser, setErrors);
   const abortControllerRef = useRef(null);
   const validateForm = () => {
     let tempErrors = {};
