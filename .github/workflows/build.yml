@@ -31,11 +31,6 @@ jobs:
         run: |
           echo "EXPO_PUBLIC_API_URL=${{ secrets.EXPO_PUBLIC_API_URL }}" >> $GITHUB_ENV
           echo "EXPO_PUBLIC_CLOUD_NAME=${{ secrets.EXPO_PUBLIC_CLOUD_NAME }}" >> $GITHUB_ENV
-
-      # Login Expo
-      - name: Login to Expo
-        run: eas login --token ${{ secrets.EXPO_TOKEN }}
-
       # Build iOS (development/internal, không cần Apple Developer Program trả phí)
       - name: Build iOS
         run: eas build --platform ios --profile development --non-interactive
