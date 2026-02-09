@@ -23,7 +23,7 @@ jobs:
           npm ci
 
       - name: Build iOS
-        run: eas build --platform ios --profile development --interactive
+        run: eas build --platform ios --profile development
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
