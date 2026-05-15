@@ -2,13 +2,13 @@ import React, { useState, useRef } from "react";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   Alert,
   ActivityIndicator
 } from "react-native";
+import AppTextInput from "../helper/AppTextInput";
 import { SafeAreaView } from "react-native-safe-area-context";
 import tw from "twrnc";
 import { ArrowLeft, ShieldCheck } from "lucide-react-native";
@@ -115,10 +115,10 @@ export default function VerifyOTPScreen({ navigation, route }) {
 
         <View style={tw`flex-row justify-between mt-10`}>
           {otp.map((digit, index) => (
-            <TextInput
+            <AppTextInput
               key={index}
               ref={(el) => (inputRefs.current[index] = el)}
-              style={tw`w-12 h-14 border-2 ${digit ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-gray-50'} rounded-xl text-center text-xl font-bold text-gray-800`}
+              style={tw`w-12 h-14 border-2 ${digit ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-gray-50'} rounded-xl text-center text-xl font-bold`}
               keyboardType="number-pad"
               maxLength={1}
               value={digit}

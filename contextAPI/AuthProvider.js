@@ -1,5 +1,6 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import storage from "../utils/storage";
 import { createContext, useState, useEffect, useContext } from "react";
+import { AppState } from "react-native";
 import summaryAPI from "../common";
 
 const AuthContext = createContext({});
@@ -13,12 +14,14 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const localStorageData = async () => {
       try {
-        const storeUser = await AsyncStorage.getItem("@AuthUser");
-        const storeToken = await AsyncStorage.getItem("@AuthToken");
+        const storeUser = await storage.getItem("@AuthUser");
+        const storeToken = await storage.getAuthToken();
 
         if (storeUser && storeToken) {
           setUser(JSON.parse(storeUser));
           setIsAuthenticated(true);
+          // Only refresh if not already handled by screens
+          await refreshUser(storeToken);
         }
       } catch (error) {
         console.error("lỗi đọc dữ liệu", error);
@@ -28,27 +31,58 @@ export const AuthProvider = ({ children }) => {
     };
     localStorageData();
   }, []);
-  const login = async (userData, accessToken, refreshToken) => {
-    setUser(prevUser => {
-      const updated = { ...prevUser, ...userData };
-      AsyncStorage.setItem("@AuthUser", JSON.stringify(updated));
-      return updated;
-    });
-    setIsAuthenticated(true);
-    await AsyncStorage.setItem("@AuthToken", accessToken);
-    if (refreshToken) {
-      await AsyncStorage.setItem("@RefreshToken", refreshToken);
+
+  const refreshUser = async (passedToken) => {
+    try {
+      const token = passedToken || await storage.getAuthToken();
+      if (!token) return;
+
+      const response = await fetch(summaryAPI.getProfile.url, {
+        method: summaryAPI.getProfile.method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.status === 401) {
+        console.log("Token expired or invalid, logging out...");
+        await logout();
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setUser(prevUser => {
+          const updated = { ...prevUser, ...data.data }; 
+          storage.setItem("@AuthUser", JSON.stringify(updated));
+          return updated;
+        });
+      }
+    } catch (error) {
+      console.log("Lỗi tự động làm mới profile:", error);
     }
   };
+
+  const login = async (userData, accessToken, refreshToken) => {
+    setUser(userData);
+    setIsAuthenticated(true);
+    await storage.setItem("@AuthUser", JSON.stringify(userData));
+    await storage.setItem("@AuthToken", accessToken);
+    if (refreshToken) {
+      await storage.setItem("@RefreshToken", refreshToken);
+    }
+  };
+
   const logout = async () => {
     setUser(null);
     setIsAuthenticated(false);
-    await AsyncStorage.clear()
-  }
-  // AuthProvider.js
+    await storage.clear();
+  };
+
   const fetchUserDetail = async () => {
     try {
-      const token = await AsyncStorage.getItem("@AuthToken");
+      const token = await storage.getAuthToken();
       if (!token) return;
 
       const response = await fetch(summaryAPI.lawyerDetail.url, {
@@ -59,13 +93,16 @@ export const AuthProvider = ({ children }) => {
         }
       });
 
+      if (response.status === 401) {
+        await logout();
+        return;
+      }
+
       const data = await response.json();
       if (data.success) {
-        // Dùng hàm để đảm bảo lấy user mới nhất trong state
         setUser(prevUser => {
           const updated = { ...prevUser, ...data.lawyer };
-          // Lưu ngay vào máy để lần sau reload không bị lấy bản cũ
-          AsyncStorage.setItem("@AuthUser", JSON.stringify(updated));
+          storage.setItem("@AuthUser", JSON.stringify(updated));
           return updated;
         });
       }
@@ -77,7 +114,7 @@ export const AuthProvider = ({ children }) => {
   const updateUser = async (newData) => {
     setUser(prevUser => {
       const updated = { ...prevUser, ...newData };
-      AsyncStorage.setItem("@AuthUser", JSON.stringify(updated));
+      storage.setItem("@AuthUser", JSON.stringify(updated));
       return updated;
     });
   };

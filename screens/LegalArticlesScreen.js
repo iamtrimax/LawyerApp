@@ -6,9 +6,10 @@ import {
     TouchableOpacity,
     Image,
     ActivityIndicator,
-    TextInput,
-    RefreshControl
+    RefreshControl,
+    Linking
 } from 'react-native';
+import AppTextInput from '../helper/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import {
@@ -50,85 +51,67 @@ export default function LegalArticlesScreen() {
     const [selectedCategory, setSelectedCategory] = useState('Tất cả');
 
 
-    const fetchArticles = useCallback(async (pageNum = 1, isRefreshing = false) => {
-        if (!hasMore && pageNum > 1 && !isRefreshing) return;
+    const fetchArticles = useCallback(async (pageNum = 1, isRefreshing = false, query = '') => {
         try {
             if (pageNum === 1) {
                 if (!isRefreshing) setLoading(true);
+                setArticles([]);
+                setAiAnswer('');
             } else {
                 setLoadingMore(true);
             }
 
-            // console.log("Fetching articles with state:", {
-            //     isAISearch,
-            //     debouncedSearchQuery,
-            //     selectedCategory
-            // });
+            // Nếu không có query và không phải đang load trang đầu (browse), thoát
+            if (!query && pageNum === 1 && !isRefreshing) {
+                // Fetch mặc định một số bài viết nếu cần, hoặc để trống
+                // Ở đây ta giữ logic fetch bài viết mới nhất nếu không có query
+            }
 
             let response;
-            if (isAISearch && debouncedSearchQuery) {
-                // AI Search call
-                const url = `${summaryAPI.AISearch.url}?query=${encodeURIComponent(debouncedSearchQuery)}`;
-                response = await fetch(url, {
-                    method: summaryAPI.AISearch.method,
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
+            if (query) {
+                // Luôn dùng AI Search khi có query
+                const url = `${summaryAPI.AISearch.url}?query=${encodeURIComponent(query)}`;
+                response = await fetch(url);
             } else {
-                // Normal Search/List call
+                // Danh sách bài viết thông thường (khi chưa search)
                 let url = `${summaryAPI.getArticles.url}?page=${pageNum}&limit=${limit}`;
-                if (selectedCategory !== 'Tất cả') {
-                    url += `&category=${encodeURIComponent(selectedCategory)}`;
-                }
-                if (debouncedSearchQuery) {
-                    url += `&search=${encodeURIComponent(debouncedSearchQuery)}`;
-                }
                 response = await fetch(url);
             }
 
             const data = await response.json();
 
-            // Allow processing if success is true OR if it's AI search and we have data (backend might return success:false)
-            if (data.success || (isAISearch && data.data)) {
+            if (data.success || data.data) {
                 let fetchedData = [];
 
-                if (isAISearch) {
+                if (query) {
                     const aiData = data.data || {};
-                    const answer = aiData.answer || "";
+                    setAiAnswer(aiData.answer || "");
                     const sources = Array.isArray(aiData.sources) ? aiData.sources : [];
 
-                    setAiAnswer(answer);
-
-                    // Map sources to match article structure for rendering
-                    fetchedData = sources.map((source, index) => ({
-                        _id: source._id || `ai-source-${index}`,
-                        title: source.title,
-                        category: source.category || 'Tài liệu tham khảo',
-                        // Add defaults for fields that might be missing in sources
-                        thumbnail: null,
-                        createdAt: new Date().toISOString(), // or null/undefined, handle in render
-                        author: { userID: { fullname: "Nguồn AI" } },
-                        views: 0,
-                        // If the source has a URL, we might want to store it to open on click
-                        sourceUrl: source.url
-                    }));
+                    fetchedData = (sources || [])
+                        .filter(s => s && (s._id || s.url))
+                        .map((source, index) => ({
+                            _id: source._id || `ai-source-${index}-${Date.now()}`,
+                            title: source.title || 'Nguồn tham khảo',
+                            category: source.category || 'Tài liệu tham khảo',
+                            thumbnail: null,
+                            content: source.content || '',
+                            createdAt: new Date().toISOString(),
+                            author: { userID: { fullname: "Nguồn AI" } },
+                            views: 0,
+                            sourceUrl: source.url
+                        }));
+                    setHasMore(false);
                 } else {
-                    setAiAnswer(''); // Clear answer in normal mode or if switching back
-                    fetchedData = Array.isArray(data.data.articles) ? data.data.articles : [];
+                    setAiAnswer('');
+                    fetchedData = Array.isArray(data.data?.articles) ? data.data.articles : [];
+                    setHasMore(fetchedData.length === limit);
                 }
 
                 if (pageNum === 1) {
                     setArticles(fetchedData);
                 } else {
                     setArticles(prev => [...prev, ...fetchedData]);
-                }
-
-                // Disable pagination for AI search
-                if (isAISearch) {
-                    setHasMore(false);
-                } else {
-                    setHasMore(fetchedData.length === limit);
                 }
                 setPage(pageNum);
             }
@@ -139,91 +122,84 @@ export default function LegalArticlesScreen() {
             setRefreshing(false);
             setLoadingMore(false);
         }
-    }, [isAISearch, debouncedSearchQuery, selectedCategory]);
-
-
-    // Debounce effect
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setDebouncedSearchQuery(searchQuery);
-        }, 1000);
-
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, []);
 
     useEffect(() => {
-        setPage(1);
-        setHasMore(true);
-        // Clear answer when switching modes or categories, unless it's a search
-        if (!isAISearch) setAiAnswer('');
         fetchArticles(1);
-    }, [selectedCategory, debouncedSearchQuery, isAISearch, fetchArticles]);
+    }, [fetchArticles]);
 
     const onRefresh = () => {
         setRefreshing(true);
         setHasMore(true);
-        fetchArticles(1, true);
+        fetchArticles(1, true, searchQuery);
     };
 
     const loadMore = () => {
         if (!loadingMore && hasMore) {
-            fetchArticles(page + 1);
+            fetchArticles(page + 1, false, searchQuery);
         }
     };
 
-    const renderArticleItem = ({ item }) => (
-        <TouchableOpacity
-            style={tw`bg-white rounded-2xl mb-4 overflow-hidden shadow-sm border border-slate-100`}
-            onPress={() => {
-                // If it's an AI source with a direct URL, maybe handle differently?
-                // For now, assume it navigates to ArticleDetail or similar.
-                // If item has no _id or real content content, ArticleDetail might fail.
-                // If AI sources are real articles just with mapped fields, it's fine.
-                // If they are external links, we might need a webview or Linking.openURL.
+    const handleSearch = () => {
+        fetchArticles(1, false, searchQuery);
+    };
 
-                if (item.sourceUrl) {
-                    // Logic for external source or navigating to detail if we can fetch it by URL/ID
-                    // For now, let's just pass the item. If it's not a full article object, ArticleDetail needs to handle it.
-                    navigation.navigate('ArticleDetail', { article: item });
-                } else {
-                    navigation.navigate('ArticleDetail', { article: item });
-                }
-            }}
-        >
-            {item.thumbnail ? (
-                <Image source={{ uri: item.thumbnail }} style={tw`w-full h-40`} resizeMode="cover" />
-            ) : (
-                <View style={tw`w-full h-40 bg-slate-100 items-center justify-center`}>
-                    <BookOpen size={48} color="#CBD5E1" />
-                </View>
-            )}
-            <View style={tw`p-4`}>
-                <View style={tw`flex-row items-center mb-2`}>
-                    <View style={tw`bg-blue-100 px-2 py-0.5 rounded-md`}>
-                        <Text style={tw`text-blue-700 text-[10px] font-bold uppercase`}>{item.category || 'Tin tức'}</Text>
+    const renderArticleItem = ({ item }) => {
+        if (!item || !item._id) return null;
+        
+        return (
+            <TouchableOpacity
+                style={tw`bg-white rounded-2xl mb-4 overflow-hidden shadow-sm border border-slate-100`}
+                onPress={() => {
+                    const id = item._id?.toString() || '';
+                    const isExternalSource = id.startsWith('ai-source-') || id.startsWith('google-source-');
+                    
+                    if (isExternalSource) {
+                        if (item.content && item.content?.length > 10) {
+                            navigation.navigate('ArticleDetail', { article: item });
+                        } else if (item.sourceUrl) {
+                            Linking.openURL(item.sourceUrl);
+                        }
+                    } else {
+                        navigation.navigate('ArticleDetail', { article: item });
+                    }
+                }}
+            >
+                {item.thumbnail ? (
+                    <Image source={{ uri: item.thumbnail }} style={tw`w-full h-40`} resizeMode="cover" />
+                ) : (
+                    <View style={tw`w-full h-40 bg-slate-100 items-center justify-center`}>
+                        <BookOpen size={48} color="#CBD5E1" />
                     </View>
-                    <Text style={tw`text-slate-400 text-xs ml-auto`}>
-                        {item.createdAt ? moment(item.createdAt).format('DD/MM/YYYY') : ''}
+                )}
+                <View style={tw`p-4`}>
+                    <View style={tw`flex-row items-center mb-2`}>
+                        <View style={tw`bg-blue-100 px-2 py-0.5 rounded-md`}>
+                            <Text style={tw`text-blue-700 text-[10px] font-bold uppercase`}>{item.category || 'Tin tức'}</Text>
+                        </View>
+                        <Text style={tw`text-slate-400 text-xs ml-auto`}>
+                            {item.createdAt ? moment(item.createdAt).format('DD/MM/YYYY') : ''}
+                        </Text>
+                    </View>
+                    <Text style={tw`text-lg font-bold text-slate-800 mb-2`} numberOfLines={2}>
+                        {item.title || 'Không có tiêu đề'}
                     </Text>
-                </View>
-                <Text style={tw`text-lg font-bold text-slate-800 mb-2`} numberOfLines={2}>
-                    {item.title}
-                </Text>
-                <View style={tw`flex-row items-center`}>
-                    <View style={tw`bg-slate-100 p-1 rounded-full`}>
-                        <User size={12} color="#64748B" />
-                    </View>
-                    <Text style={tw`text-slate-500 text-xs ml-1`}>
-                        {item.author?.userID?.fullname || "Nguồn tham khảo"}
-                    </Text>
-                    <View style={tw`flex-row items-center ml-4`}>
-                        <Clock size={12} color="#64748B" />
-                        <Text style={tw`text-slate-500 text-xs ml-1`}>{item.views || 0} lượt xem</Text>
+                    <View style={tw`flex-row items-center`}>
+                        <View style={tw`bg-slate-100 p-1 rounded-full`}>
+                            <User size={12} color="#64748B" />
+                        </View>
+                        <Text style={tw`text-slate-500 text-xs ml-1`}>
+                            {item.author?.userID?.fullname || "Nguồn tham khảo"}
+                        </Text>
+                        <View style={tw`flex-row items-center ml-4`}>
+                            <Clock size={12} color="#64748B" />
+                            <Text style={tw`text-slate-500 text-xs ml-1`}>{item.views || 0} lượt xem</Text>
+                        </View>
                     </View>
                 </View>
-            </View>
-        </TouchableOpacity>
-    );
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <SafeAreaView style={tw`flex-1 bg-slate-50`}>
@@ -247,39 +223,16 @@ export default function LegalArticlesScreen() {
 
             <View style={tw`px-4 py-4 flex-1`}>
                 <View style={tw`flex-row items-center bg-white rounded-2xl px-4 py-3 shadow-sm border border-slate-100 mb-4`}>
-                    <Search size={20} color={isAISearch ? "#2563EB" : "#64748B"} />
-                    <TextInput
-                        style={tw`flex-1 ml-3 text-slate-700`}
-                        placeholder={isAISearch ? "Hỏi AI về điều luật..." : "Tìm kiếm bài viết..."}
+                    <AppTextInput
+                        style={tw`flex-1 ml-3`}
+                        placeholder="Hỏi AI về pháp luật..."
                         value={searchQuery}
                         onChangeText={setSearchQuery}
+                        onSubmitEditing={handleSearch}
                     />
-                    <TouchableOpacity
-                        onPress={() => setIsAISearch(!isAISearch)}
-                        style={tw`ml-2 p-2 rounded-xl ${isAISearch ? 'bg-blue-50' : 'bg-slate-50'}`}
-                    >
-                        <Sparkles size={20} color={isAISearch ? "#2563EB" : "#64748B"} fill={isAISearch ? "#2563EB" : "none"} />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Categories Scroll wrapped to prevent stretching */}
-                <View style={tw`h-14 mb-4`}>
-                    <FlatList
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        data={categories}
-                        keyExtractor={item => item}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                onPress={() => setSelectedCategory(item)}
-                                style={tw`mr-2 px-6 py-2 rounded-full self-start ${selectedCategory === item ? 'bg-blue-600' : 'bg-white border border-slate-100'}`}
-                            >
-                                <Text style={tw`font-medium ${selectedCategory === item ? 'text-white' : 'text-slate-500'}`}>
-                                    {item}
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-                    />
+                    <View style={tw`ml-2 p-2 rounded-xl bg-blue-50`}>
+                        <Sparkles size={20} color="#2563EB" fill="#2563EB" />
+                    </View>
                 </View>
 
                 {loading ? (
@@ -289,9 +242,9 @@ export default function LegalArticlesScreen() {
                 ) : (
                     <FlatList
                         style={tw`flex-1`}
-                        data={articles}
+                        data={articles.filter(item => item && item._id)}
                         renderItem={renderArticleItem}
-                        keyExtractor={item => item._id}
+                        keyExtractor={(item, index) => item?._id?.toString() || `item-${index}`}
                         contentContainerStyle={tw`pb-20`}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} color="#2563EB" />
@@ -326,8 +279,10 @@ export default function LegalArticlesScreen() {
                         ListEmptyComponent={
                             <View style={tw`items-center justify-center mt-20`}>
                                 <BookOpen size={64} color="#CBD5E1" />
-                                <Text style={tw`text-slate-400 mt-4 text-lg`}>
-                                    {isAISearch ? "Không tìm thấy câu trả lời phù hợp" : "Không tìm thấy bài viết nào"}
+                                <Text style={tw`text-slate-400 mt-4 text-lg text-center px-10`}>
+                                    {isAISearch 
+                                        ? (searchQuery ? "Không tìm thấy câu trả lời phù hợp" : "Hãy đặt câu hỏi cho AI để tìm hiểu về pháp luật")
+                                        : "Không tìm thấy bài viết nào"}
                                 </Text>
                             </View>
                         }

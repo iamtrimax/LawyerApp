@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
     View,
     Text,
-    TextInput,
     TouchableOpacity,
     KeyboardAvoidingView,
     Platform,
@@ -10,6 +9,7 @@ import {
     ActivityIndicator,
     Alert,
 } from "react-native";
+import AppTextInput from "../helper/AppTextInput";
 import { SafeAreaView } from "react-native-safe-area-context";
 import tw from "twrnc";
 import { Mail, ArrowLeft, Send } from "lucide-react-native";
@@ -103,8 +103,8 @@ export default function ForgotPasswordScreen({ navigation, route }) {
                             </Text>
                             <View style={tw`flex-row items-center bg-gray-50 border border-gray-100 rounded-2xl px-4 h-14`}>
                                 <Mail size={20} color="#9CA3AF" />
-                                <TextInput
-                                    style={tw`flex-1 ml-3 text-gray-800`}
+                                <AppTextInput
+                                    style={tw`flex-1 ml-3`}
                                     placeholder="Nhập email của bạn"
                                     value={email}
                                     onChangeText={setEmail}

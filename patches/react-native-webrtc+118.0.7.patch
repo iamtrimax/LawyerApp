@@ -1,0 +1,55 @@
+diff --git a/node_modules/react-native-webrtc/android/.project b/node_modules/react-native-webrtc/android/.project
+new file mode 100644
+index 0000000..d94b947
+--- /dev/null
++++ b/node_modules/react-native-webrtc/android/.project
+@@ -0,0 +1,28 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<projectDescription>
++	<name>react-native-webrtc</name>
++	<comment>Project react-native-webrtc created by Buildship.</comment>
++	<projects>
++	</projects>
++	<buildSpec>
++		<buildCommand>
++			<name>org.eclipse.buildship.core.gradleprojectbuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++	</buildSpec>
++	<natures>
++		<nature>org.eclipse.buildship.core.gradleprojectnature</nature>
++	</natures>
++	<filteredResources>
++		<filter>
++			<id>1776674148916</id>
++			<name></name>
++			<type>30</type>
++			<matcher>
++				<id>org.eclipse.core.resources.regexFilterMatcher</id>
++				<arguments>node_modules|\.git|__CREATED_BY_JAVA_LANGUAGE_SERVER__</arguments>
++			</matcher>
++		</filter>
++	</filteredResources>
++</projectDescription>
+diff --git a/node_modules/react-native-webrtc/android/src/main/java/com/oney/WebRTCModule/WebRTCModule.java b/node_modules/react-native-webrtc/android/src/main/java/com/oney/WebRTCModule/WebRTCModule.java
+index 4c39211..c4528cb 100644
+--- a/node_modules/react-native-webrtc/android/src/main/java/com/oney/WebRTCModule/WebRTCModule.java
++++ b/node_modules/react-native-webrtc/android/src/main/java/com/oney/WebRTCModule/WebRTCModule.java
+@@ -711,7 +711,7 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
+     }
+ 
+     @ReactMethod(isBlockingSynchronousMethod = true)
+-    public void transceiverSetCodecPreferences(int id, String senderId, ReadableArray codecPreferences) {
++    public boolean transceiverSetCodecPreferences(int id, String senderId, ReadableArray codecPreferences) {
+         ThreadUtils.runOnExecutor(() -> {
+             WritableMap identifier = Arguments.createMap();
+             WritableMap params = Arguments.createMap();
+@@ -770,6 +770,7 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
+                 Log.d(TAG, "transceiverSetCodecPreferences(): " + e.getMessage());
+             }
+         });
++        return true;
+     }
+ 
+     @ReactMethod

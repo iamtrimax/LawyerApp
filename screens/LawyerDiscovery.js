@@ -4,15 +4,16 @@ import {
     Text,
     FlatList,
     TouchableOpacity,
-    TextInput,
-    Image,
     ActivityIndicator,
-    Alert
+    Alert,
+    Image
 } from 'react-native';
+import AppTextInput from '../helper/AppTextInput';
 import tw from 'twrnc';
-import { Search, Filter, Star, ChevronRight, ArrowLeft, MessageSquare } from 'lucide-react-native';
+import { Search, Filter, Star, ChevronRight, ArrowLeft, MessageSquare, Phone } from 'lucide-react-native';
+import { useSocket } from '../contextAPI/SocketProvider';
 import summaryAPI from '../common';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../utils/storage';
 
 const CATEGORIES = ['Tất cả', 'Hôn nhân', 'Đất đai', 'Hình sự', 'Doanh nghiệp'];
 
@@ -21,6 +22,7 @@ export default function LawyerDiscovery({ navigation }) {
     const [loading, setLoading] = useState(true);
     const [selectedCat, setSelectedCat] = useState('Tất cả');
     const [searchText, setSearchText] = useState('');
+    const { callUser } = useSocket();
 
     // Gọi API lấy danh sách luật sư
     const fetchLawyers = async () => {
@@ -48,7 +50,7 @@ export default function LawyerDiscovery({ navigation }) {
     const handleStartChat = async (lawyer) => {
         try {
             console.log("Starting chat with lawyer:", lawyer.userID?._id);
-            const token = await AsyncStorage.getItem('@AuthToken');
+            const token = await storage.getItem('@AuthToken');
             if (!token) {
                 Alert.alert("Yêu cầu đăng nhập", "Vui lòng đăng nhập để bắt đầu trò chuyện.");
                 return;
@@ -106,7 +108,13 @@ export default function LawyerDiscovery({ navigation }) {
                 <View style={tw`flex-1 ml-4 justify-between`}>
                     <View>
                         <Text style={tw`text-base font-bold text-slate-800`}>{item.userID?.fullname || 'Luật sư chuyên gia'}</Text>
-                        <Text style={tw`text-xs text-blue-600 font-medium mt-1`}>{item.specialty}</Text>
+                        <Text style={tw`text-xs text-blue-600 font-medium mt-1`}>
+                            {Array.isArray(item.specialty) 
+                                ? item.specialty.join(', ') 
+                                : (typeof item.specialty === 'string' 
+                                    ? item.specialty.split(',').map(s => s.trim()).join(', ') 
+                                    : (item.specialty || 'Chuyên gia pháp lý'))}
+                        </Text>
                     </View>
 
                     <View style={tw`flex-row items-center mt-2`}>
@@ -127,6 +135,17 @@ export default function LawyerDiscovery({ navigation }) {
                     style={tw`bg-indigo-50 p-3 rounded-2xl mb-2`}
                 >
                     <MessageSquare size={22} color="#4F46E5" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => {
+                        const receiverId = item.userID?._id;
+                        const receiverName = item.userID?.fullname || "Luật sư";
+                        // Start a call
+                        callUser(receiverId, receiverName, 'video');
+                    }}
+                    style={tw`bg-green-50 p-3 rounded-2xl mb-2`}
+                >
+                    <Phone size={22} color="#10B981" />
                 </TouchableOpacity>
                 <TouchableOpacity
                     onPress={() => navigation.navigate('BookingScreen', { lawyer: item })}
@@ -154,9 +173,9 @@ export default function LawyerDiscovery({ navigation }) {
                 {/* Thanh tìm kiếm */}
                 <View style={tw`flex-row items-center bg-slate-100 px-4 py-3 rounded-2xl`}>
                     <Search size={20} color="#94A3B8" />
-                    <TextInput
+                    <AppTextInput
                         placeholder="Tìm theo tên luật sư..."
-                        style={tw`flex-1 ml-3 text-slate-700`}
+                        style={tw`flex-1 ml-3`}
                         value={searchText}
                         onChangeText={setSearchText}
                     />

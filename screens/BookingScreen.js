@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -6,18 +6,20 @@ import {
     TouchableOpacity,
     Image,
     Alert,
-    TextInput,
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform
 } from 'react-native';
+import AppTextInput from '../helper/AppTextInput';
 import tw from 'twrnc';
 import { ArrowLeft, Calendar, Clock, CheckCircle, MapPin, Briefcase, Home, Phone } from 'lucide-react-native';
 import summaryAPI from '../common';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../utils/storage';
 import { useAuth } from '../contextAPI/AuthProvider';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { Camera, FileText, X, File } from 'lucide-react-native';
+import Constants from 'expo-constants';
 
 const DAYS_OF_WEEK = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
 
@@ -29,7 +31,38 @@ export default function BookingScreen({ navigation, route }) {
     const [slots, setSlots] = useState([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [schedule, setSchedule] = useState([]); // Store fetched schedule
-    const { user } = useAuth()
+    const { user, isAuthenticated, loading: authLoading } = useAuth();
+    const prevAuth = useRef(isAuthenticated);
+
+    useEffect(() => {
+        if (!authLoading && !isAuthenticated) {
+            if (prevAuth.current) {
+                // Nếu vừa đăng xuất (từ true sang false), chuyển về Home
+                navigation.navigate("Home");
+            } else {
+                // Nếu ban đầu vào đã chưa đăng nhập, hiện Alert
+                const title = "Yêu cầu đăng nhập";
+                const message = "Bạn cần đăng nhập để đặt lịch hẹn với luật sư.";
+                if (Platform.OS === 'web') {
+                    if (window.confirm(`${title}\n\n${message}`)) {
+                        navigation.navigate("Login", { returnScreen: "BookingScreen", lawyer: lawyer });
+                    } else {
+                        navigation.goBack();
+                    }
+                } else {
+                    Alert.alert(
+                        title,
+                        message,
+                        [
+                            { text: "Để sau", onPress: () => navigation.goBack(), style: "cancel" },
+                            { text: "Đăng nhập", onPress: () => navigation.navigate("Login", { returnScreen: "BookingScreen", lawyer: lawyer }) }
+                        ]
+                    );
+                }
+            }
+        }
+        prevAuth.current = isAuthenticated;
+    }, [isAuthenticated, authLoading]);
     // New Feature: Location Selection
     const [bookingType, setBookingType] = useState('office'); // 'office' | 'home'
     const [address, setAddress] = useState('');
@@ -135,28 +168,69 @@ export default function BookingScreen({ navigation, route }) {
         }, 300);
     };
 
-    const pickDocuments = async () => {
+    const pickImage = async () => {
         try {
-            const result = await DocumentPicker.getDocumentAsync({
-                type: ['image/*', 'application/pdf'],
-                multiple: true,
-                copyToCacheDirectory: true
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== "granted") {
+                Alert.alert("Quyền truy cập", "Vui lòng cấp quyền truy cập thư viện ảnh!");
+                return;
+            }
+
+            let result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: 'images',
+                allowsEditing: true,
+                quality: 0.7,
             });
 
             if (!result.canceled) {
-                const selectedDocs = result.assets.map(asset => ({
+                const asset = result.assets[0];
+                const newDoc = {
                     uri: asset.uri,
-                    name: asset.name,
-                    mimeType: asset.mimeType,
-                    size: asset.size
-                }));
-                // Combine with existing documents, limit to 5
-                setDocumentsLocal(prev => [...prev, ...selectedDocs].slice(0, 5));
+                    name: `image_${Date.now()}.jpg`,
+                    mimeType: 'image/jpeg',
+                    size: 0
+                };
+                setDocumentsLocal(prev => [...prev, newDoc].slice(0, 5));
             }
         } catch (error) {
-            console.error("Error picking documents:", error);
-            Alert.alert("Lỗi", "Không thể chọn tài liệu.");
+            console.error("Error picking image:", error);
+            Alert.alert("Lỗi", "Không thể chọn ảnh.");
         }
+    };
+
+    const pickDocuments = async () => {
+        Alert.alert(
+            "Tải lên tài liệu",
+            "Bạn muốn chọn ảnh hay file tài liệu (PDF/Word)?",
+            [
+                { text: "Chọn Ảnh", onPress: pickImage },
+                { 
+                    text: "Chọn File", 
+                    onPress: async () => {
+                        try {
+                            const result = await DocumentPicker.getDocumentAsync({
+                                type: ['image/*', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+                                multiple: true,
+                            });
+
+                            if (!result.canceled) {
+                                const selectedDocs = result.assets.map(asset => ({
+                                    uri: asset.uri,
+                                    name: asset.name,
+                                    mimeType: asset.mimeType,
+                                    size: asset.size
+                                }));
+                                setDocumentsLocal(prev => [...prev, ...selectedDocs].slice(0, 5));
+                            }
+                        } catch (error) {
+                            console.error("Error picking documents:", error);
+                            Alert.alert("Lỗi", "Không thể chọn tài liệu.");
+                        }
+                    }
+                },
+                { text: "Hủy", style: "cancel" }
+            ]
+        );
     };
 
     const removeDocument = (index) => {
@@ -164,18 +238,29 @@ export default function BookingScreen({ navigation, route }) {
     };
 
     const uploadToCloudinary = async (doc) => {
-        const cloudName = process.env.EXPO_PUBLIC_CLOUD_NAME;
+        const cloudName = Constants.expoConfig?.extra?.cloudName || process.env.EXPO_PUBLIC_CLOUD_NAME;
         const data = new FormData();
 
-        // Determine resource type for Cloudinary
         const isImage = doc.mimeType?.startsWith('image/');
         const resourceType = isImage ? 'image' : 'raw';
 
-        data.append("file", {
-            uri: doc.uri,
-            type: doc.mimeType || (isImage ? "image/jpeg" : "application/octet-stream"),
-            name: doc.name || `booking_doc_${Date.now()}`,
-        });
+        if (Platform.OS === 'web') {
+            try {
+                const response = await fetch(doc.uri);
+                const blob = await response.blob();
+                data.append("file", blob, doc.name || `booking_doc_${Date.now()}`);
+            } catch (error) {
+                console.error("Web Blob fetch error:", error);
+                return null;
+            }
+        } else {
+            data.append("file", {
+                uri: doc.uri,
+                type: doc.mimeType || (isImage ? "image/jpeg" : "application/octet-stream"),
+                name: doc.name || `booking_doc_${Date.now()}`,
+            });
+        }
+        
         data.append("upload_preset", "lawyerPicture");
         data.append("cloud_name", cloudName);
 
@@ -187,7 +272,6 @@ export default function BookingScreen({ navigation, route }) {
                     body: data,
                     headers: {
                         Accept: "application/json",
-                        "Content-Type": "multipart/form-data",
                     },
                 }
             );
@@ -221,7 +305,7 @@ export default function BookingScreen({ navigation, route }) {
 
         try {
             if (documentsLocal.length > 0) {
-                const uploadPromises = documentsLocal.map(uri => uploadToCloudinary(uri));
+                const uploadPromises = documentsLocal.map(doc => uploadToCloudinary(doc));
                 uploadedDocs = await Promise.all(uploadPromises);
                 uploadedDocs = uploadedDocs.filter(url => url !== null);
             }
@@ -247,7 +331,7 @@ export default function BookingScreen({ navigation, route }) {
                 note: bookingType === 'home' ? `Tại nhà: ${address}` : 'Tại văn phòng',
             };
 
-            const token = await AsyncStorage.getItem("@AuthToken");
+            const token = await storage.getItem("@AuthToken");
             if (!token) {
                 Alert.alert("Lỗi", "Bạn chưa đăng nhập. Vui lòng đăng nhập lại.");
                 setUploading(false);
@@ -292,6 +376,30 @@ export default function BookingScreen({ navigation, route }) {
         return { day: d, name: dayName };
     };
 
+    if (authLoading) {
+        return (
+            <View style={tw`flex-1 justify-center items-center bg-white`}>
+                <ActivityIndicator size="large" color="#2563EB" />
+            </View>
+        );
+    }
+
+    if (!isAuthenticated) {
+        return (
+            <View style={tw`flex-1 bg-slate-50 justify-center items-center p-6`}>
+                <Text style={tw`text-lg text-slate-600 text-center mb-6`}>
+                    Vui lòng đăng nhập để sử dụng tính năng đặt lịch.
+                </Text>
+                <TouchableOpacity
+                    onPress={() => navigation.navigate("Login", { returnScreen: "BookingScreen", lawyer: lawyer })}
+                    style={tw`bg-blue-600 px-8 py-3 rounded-2xl shadow-lg shadow-blue-300`}
+                >
+                    <Text style={tw`text-white font-bold text-lg`}>Đăng nhập ngay</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
     return (
         <View style={tw`flex-1 bg-slate-50`}>
             {/* Header */}
@@ -311,7 +419,13 @@ export default function BookingScreen({ navigation, route }) {
                     />
                     <View style={tw`ml-3 flex-1`}>
                         <Text style={tw`font-bold text-slate-800 text-base`}>{lawyer.userID?.fullname || "Luật sư"}</Text>
-                        <Text style={tw`text-blue-600 text-xs`}>{lawyer.specialty || "Chuyên gia pháp lý"}</Text>
+                        <Text style={tw`text-blue-600 text-xs`}>
+                            {Array.isArray(lawyer.specialty) 
+                                ? lawyer.specialty.join(', ') 
+                                : (typeof lawyer.specialty === 'string' 
+                                    ? lawyer.specialty.split(',').map(s => s.trim()).join(', ') 
+                                    : (lawyer.specialty || 'Chuyên gia pháp lý'))}
+                        </Text>
                     </View>
                 </View>
             </View>
@@ -414,8 +528,8 @@ export default function BookingScreen({ navigation, route }) {
                                 <MapPin size={18} color="#2563EB" />
                                 <Text style={tw`ml-2 font-semibold text-slate-700`}>Nhập địa chỉ của bạn:</Text>
                             </View>
-                            <TextInput
-                                style={tw`bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800`}
+                            <AppTextInput
+                                style={tw`bg-slate-50 border border-slate-200 rounded-xl px-4 py-3`}
                                 placeholder="Số nhà, đường, phường, quận..."
                                 placeholderTextColor="#94A3B8"
                                 value={address}
@@ -436,8 +550,8 @@ export default function BookingScreen({ navigation, route }) {
                             <Phone size={18} color="#2563EB" />
                             <Text style={tw`ml-2 font-semibold text-slate-700`}>Số điện thoại liên hệ:</Text>
                         </View>
-                        <TextInput
-                            style={tw`bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800`}
+                        <AppTextInput
+                            style={tw`bg-slate-50 border border-slate-200 rounded-xl px-4 py-3`}
                             placeholder="Nhập số điện thoại của bạn"
                             placeholderTextColor="#94A3B8"
                             value={actualPhone}

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import { ArrowLeft, Calendar, Clock, User, Phone, Mail, MapPin, FileText, CreditCard, File } from 'lucide-react-native';
 import summaryAPI from '../common';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../utils/storage';
 import moment from 'moment';
 import { useAuth } from '../contextAPI/AuthProvider';
 import { useFocusEffect } from '@react-navigation/native';
@@ -17,7 +17,7 @@ export default function LawyerAppointmentsScreen({ navigation }) {
 
     const fetchBookings = async () => {
         try {
-            const token = await AsyncStorage.getItem("@AuthToken");
+            const token = await storage.getItem("@AuthToken");
             console.log("Retrieved AuthToken:", token ? "Exist" : "Not Found");
             if (!token) {
                 setLoading(false);

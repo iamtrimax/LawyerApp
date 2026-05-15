@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
@@ -17,7 +16,9 @@ import summaryAPI from "../common";
 import ModalError from "../components/ModalError";
 import { useAuth } from "../contextAPI/AuthProvider";
 import { createInputChangeHandler } from "../helper/handleInputChange";
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, route }) {
+  const returnScreen = route.params?.returnScreen;
+  const returnParams = route.params?.lawyer ? { lawyer: route.params.lawyer } : {};
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [user, setUser] = useState({
     email: "",
@@ -50,13 +51,18 @@ export default function LoginScreen({ navigation }) {
 
       if (response.ok && data.success) {
         login(data.user, data.accessToken, data.refreshToken);
-        navigation.navigate("Home");
+        if (returnScreen) {
+          navigation.navigate(returnScreen, returnParams);
+        } else {
+          navigation.navigate("Home");
+        }
       } else {
         setServerError(data.message || "Đăng Nhập thất bại. Vui lòng thử lại.");
         setShowErrorModal(true);
       }
     } catch (error) {
-      setServerError("Lỗi kết nối server. Vui lòng kiểm tra Wi-Fi hoặc IP.");
+      console.error("Login Error:", error);
+      setServerError(`Lỗi kết nối: ${error.message}\nIP: ${summaryAPI.login.url}`);
       setShowErrorModal(true);
     } finally {
       setLoading(false);
@@ -65,10 +71,14 @@ export default function LoginScreen({ navigation }) {
   const validateForm = () => {
     let tempErrors = {};
     const emailRegex = /\S+@\S+\.\S+/;
+    const phoneRegex = /^[0-9]{10,11}$/;
 
-    if (!user.email.trim()) tempErrors.email = "Email không được để trống";
-    else if (!emailRegex.test(user.email))
-      tempErrors.email = "Email không đúng định dạng";
+    if (!user.email.trim()) {
+      tempErrors.email = "Vui lòng nhập email hoặc số điện thoại";
+    } else if (!emailRegex.test(user.email) && !phoneRegex.test(user.email)) {
+      tempErrors.email = "Email hoặc số điện thoại không đúng định dạng";
+    }
+
     if (!user.password.trim())
       tempErrors.password = "Mật khẩu không được để trống";
 
@@ -119,12 +129,12 @@ export default function LoginScreen({ navigation }) {
           <View style={tw`gap-y-4`}>
             {/* Email Input */}
             <InputField
-              label="Email"
+              label="Email hoặc Số điện thoại"
               icon={Mail}
               user={user}
               field="email"
-              placeholder="email"
-              keyboardType="email-address"
+              placeholder="Nhập email hoặc số điện thoại"
+              keyboardType="default"
               autoCapitalize="none"
               error={errors.email}
               handleInputChange={handleInputChange}

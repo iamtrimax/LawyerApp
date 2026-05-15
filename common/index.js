@@ -1,5 +1,7 @@
-const url_api = process.env.EXPO_PUBLIC_API_URL;
-const socket_url = url_api; // Use the same host for WebSocket
+import Constants from 'expo-constants';
+
+const url_api = Constants.expoConfig?.extra?.apiUrl || process.env.EXPO_PUBLIC_API_URL;
+const socket_url = process.env.EXPO_PUBLIC_SOCKET_URL || url_api; // Use EXPO_PUBLIC_SOCKET_URL or fallback to url_api
 
 const summaryAPI = {
   verifyEmail: {
@@ -156,6 +158,42 @@ const summaryAPI = {
   },
   AISearch: {
     url: `${url_api}/api/articles/ai-search`,
+    method: "GET",
+  },
+  UpdateLawyerProfile: {
+    url: `${url_api}/api/lawyer/profile`,
+    method: "PUT",
+  },  
+  chatBroadcast: {
+    url: `${url_api}/api/chat/broadcast`,
+    method: "POST",
+  },
+  getChatBroadcast: {
+    url: `${url_api}/api/chat/broadcasts`,
+    method: "GET",
+  },
+  legalAIChat: {
+    url: `${url_api}/api/legal/ai-chat`,
+    method: "POST",
+  },
+  legalAIFormTypes: {
+    url: `${url_api}/api/legal/ai-chat/form-types`,
+    method: "GET",
+  },
+  legalAIDownload: {
+    url: `${url_api}/api/legal/ai-chat/download`,
+    method: "POST",
+  },
+  legalAIHistory: {
+    url: `${url_api}/api/legal/ai-chat/history`,
+    method: "GET",
+  },
+  getProfile: {
+    url: `${url_api}/api/profile`,
+    method: "GET",
+  },
+  getReferrals: {
+    url: `${url_api}/api/referrals`,
     method: "GET",
   },
 };

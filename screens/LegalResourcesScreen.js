@@ -6,9 +6,9 @@ import {
     TouchableOpacity,
     Image,
     ActivityIndicator,
-    TextInput,
     RefreshControl
 } from 'react-native';
+import AppTextInput from '../helper/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import {
@@ -186,8 +186,8 @@ export default function LegalResourcesScreen() {
             <View style={tw`px-4 py-4 flex-1`}>
                 <View style={tw`flex-row items-center bg-white rounded-2xl px-4 py-3 shadow-sm border border-slate-100 mb-4`}>
                     <Search size={20} color="#64748B" />
-                    <TextInput
-                        style={tw`flex-1 ml-3 text-slate-700`}
+                    <AppTextInput
+                        style={tw`flex-1 ml-3`}
                         placeholder="Search resources..."
                         value={searchQuery}
                         onChangeText={setSearchQuery}

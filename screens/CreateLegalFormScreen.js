@@ -4,12 +4,12 @@ import {
     Text,
     TouchableOpacity,
     ScrollView,
-    TextInput,
     ActivityIndicator,
     Alert,
     Image,
     Switch
 } from 'react-native';
+import AppTextInput from '../helper/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import {
@@ -24,7 +24,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import summaryAPI from '../common';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../utils/storage';
+import Constants from 'expo-constants';
 
 export default function CreateLegalFormScreen({ route }) {
     const navigation = useNavigation();
@@ -43,7 +44,7 @@ export default function CreateLegalFormScreen({ route }) {
     const [thumbnail, setThumbnail] = useState(editingForm?.thumbnail || '');
 
     const categories = ['Civil', 'Criminal', 'Business', 'Labor', 'Family', 'Other'];
-    const cloudName = process.env.EXPO_PUBLIC_CLOUD_NAME;
+    const cloudName = Constants.expoConfig?.extra?.cloudName || process.env.EXPO_PUBLIC_CLOUD_NAME;
 
     const uploadToCloudinary = async (uri, resourceType = 'auto') => {
         const formData = new FormData();
@@ -51,12 +52,24 @@ export default function CreateLegalFormScreen({ route }) {
         const match = /\.(\w+)$/.exec(filename);
         const type = match ? `image/${match[1]}` : `image`;
 
-        formData.append('file', {
-            uri: uri,
-            name: filename,
-            type: resourceType === 'image' ? type : 'application/octet-stream',
-        });
-        formData.append('upload_preset', 'lawyerPicture'); // Matches BookingScreen.js
+        if (Platform.OS === 'web') {
+            try {
+                const response = await fetch(uri);
+                const blob = await response.blob();
+                formData.append('file', blob, filename);
+            } catch (error) {
+                console.error("Web Blob fetch error:", error);
+                throw error;
+            }
+        } else {
+            formData.append('file', {
+                uri: uri,
+                name: filename,
+                type: resourceType === 'image' ? type : 'application/octet-stream',
+            });
+        }
+        
+        formData.append('upload_preset', 'lawyerPicture'); 
         formData.append('cloud_name', cloudName);
 
         try {
@@ -67,7 +80,6 @@ export default function CreateLegalFormScreen({ route }) {
                     body: formData,
                     headers: {
                         'Accept': 'application/json',
-                        'Content-Type': 'multipart/form-data',
                     },
                 }
             );
@@ -85,7 +97,8 @@ export default function CreateLegalFormScreen({ route }) {
                 type: [
                     'application/pdf',
                     'application/msword',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'image/*'
                 ],
             });
 
@@ -108,7 +121,7 @@ export default function CreateLegalFormScreen({ route }) {
     const pickThumbnail = async () => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: 'images',
                 allowsEditing: true,
                 aspect: [16, 9],
                 quality: 0.8,
@@ -135,7 +148,7 @@ export default function CreateLegalFormScreen({ route }) {
 
         setLoading(true);
         try {
-            const token = await AsyncStorage.getItem('@AuthToken');
+            const token = await storage.getItem('@AuthToken');
             const url = editingForm
                 ? summaryAPI.updateLegalForm.url.replace(':id', editingForm._id)
                 : summaryAPI.createLegalForm.url;
@@ -199,8 +212,8 @@ export default function CreateLegalFormScreen({ route }) {
                 {/* Name Input */}
                 <View style={tw`mb-6`}>
                     <Text style={tw`text-slate-700 font-bold mb-2`}>Tên biểu mẫu *</Text>
-                    <TextInput
-                        style={tw`bg-slate-50 p-4 rounded-2xl border border-slate-200 text-slate-800`}
+                    <AppTextInput
+                        style={tw`bg-slate-50 p-4 rounded-2xl border border-slate-200`}
                         placeholder="Nhập tên biểu mẫu..."
                         value={name}
                         onChangeText={setName}
@@ -228,8 +241,8 @@ export default function CreateLegalFormScreen({ route }) {
                 {/* Description */}
                 <View style={tw`mb-6`}>
                     <Text style={tw`text-slate-700 font-bold mb-2`}>Mô tả</Text>
-                    <TextInput
-                        style={tw`bg-slate-50 p-4 rounded-2xl border border-slate-200 text-slate-800 h-32`}
+                    <AppTextInput
+                        style={tw`bg-slate-50 p-4 rounded-2xl border border-slate-200 h-32`}
                         placeholder="Mô tả ngắn về biểu mẫu..."
                         multiline
                         numberOfLines={4}

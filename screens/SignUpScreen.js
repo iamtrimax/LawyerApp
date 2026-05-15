@@ -30,6 +30,7 @@ export default function SignUpScreen({ navigation }) {
     email: "",
     phone: "",
     password: "",
+    referralCode: "",
   });
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
@@ -74,6 +75,7 @@ export default function SignUpScreen({ navigation }) {
           email: user.email,
           password: user.password,
           phone: user.phone,
+          referralCode: user.referralCode,
         }),
       });
 
@@ -161,6 +163,15 @@ export default function SignUpScreen({ navigation }) {
             error={errors.password}
             passwordVisible={passwordVisible}
             setPasswordVisible={setPasswordVisible}
+            handleInputChange={handleInputChange}
+          />
+          <InputField
+            label="Mã giới thiệu (Nếu có)"
+            icon={Phone}
+            user={user}
+            field="referralCode"
+            placeholder="Số điện thoại người giới thiệu"
+            keyboardType="phone-pad"
             handleInputChange={handleInputChange}
           />
 

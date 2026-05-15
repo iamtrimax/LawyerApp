@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "566062492748",
+    "project_id": "lawyerproject-bbbbc",
+    "storage_bucket": "lawyerproject-bbbbc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:566062492748:android:8cd19d70c186ab471998e9",
+        "android_client_info": {
+          "package_name": "com.trimax.firstApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZ48_ayRkHAXrww1qF5bP0-YW43D8x2U4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

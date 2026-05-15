@@ -8,8 +8,8 @@ import {
     ScrollView,
     ActivityIndicator,
     StatusBar,
-    TextInput,
 } from "react-native";
+import AppTextInput from "../helper/AppTextInput";
 import { SafeAreaView } from "react-native-safe-area-context";
 import tw from "twrnc";
 import {
@@ -41,8 +41,8 @@ const PremiumInput = ({ label, icon: Icon, value, onChangeText, placeholder, err
                 <Icon size={20} color={error ? "#F87171" : "#3B82F6"} />
             </View>
             <View style={tw`flex-1`}>
-                <TextInput
-                    style={tw`flex-1 text-blue-900 text-base font-medium`}
+                <AppTextInput
+                    style={tw`flex-1 text-base font-medium`}
                     value={value}
                     onChangeText={onChangeText}
                     placeholder={placeholder}
@@ -72,6 +72,7 @@ export default function MemberSignUpScreen({ navigation }) {
         email: "",
         phone: "",
         password: "",
+        referralCode: "",
     });
     const [passwordVisible, setPasswordVisible] = useState(false);
     const [isAgreed, setIsAgreed] = useState(false);
@@ -109,6 +110,7 @@ export default function MemberSignUpScreen({ navigation }) {
                     email: user.email,
                     password: user.password,
                     phone: user.phone,
+                    referralCode: user.referralCode,
                     role: "member"
                 }),
             });
@@ -178,8 +180,8 @@ export default function MemberSignUpScreen({ navigation }) {
                                 <View style={tw`bg-blue-50 p-2 rounded-2xl mr-3`}>
                                     <User size={20} color={errors.fullName ? "#F87171" : "#3B82F6"} />
                                 </View>
-                                <TextInput
-                                    style={tw`flex-1 text-blue-950 text-base font-semibold`}
+                                <AppTextInput
+                                    style={tw`flex-1 text-base font-semibold`}
                                     placeholder="Nguyễn Văn A"
                                     placeholderTextColor="#94A3B8"
                                     value={user.fullName}
@@ -195,8 +197,8 @@ export default function MemberSignUpScreen({ navigation }) {
                                 <View style={tw`bg-blue-50 p-2 rounded-2xl mr-3`}>
                                     <Mail size={20} color={errors.email ? "#F87171" : "#3B82F6"} />
                                 </View>
-                                <TextInput
-                                    style={tw`flex-1 text-blue-950 text-base font-semibold`}
+                                <AppTextInput
+                                    style={tw`flex-1 text-base font-semibold`}
                                     placeholder="vidu@email.com"
                                     placeholderTextColor="#94A3B8"
                                     autoCapitalize="none"
@@ -214,8 +216,8 @@ export default function MemberSignUpScreen({ navigation }) {
                                 <View style={tw`bg-blue-50 p-2 rounded-2xl mr-3`}>
                                     <Phone size={20} color={errors.phone ? "#F87171" : "#3B82F6"} />
                                 </View>
-                                <TextInput
-                                    style={tw`flex-1 text-blue-950 text-base font-semibold`}
+                                <AppTextInput
+                                    style={tw`flex-1 text-base font-semibold`}
                                     placeholder="09xx xxx xxx"
                                     placeholderTextColor="#94A3B8"
                                     keyboardType="phone-pad"
@@ -225,15 +227,14 @@ export default function MemberSignUpScreen({ navigation }) {
                             </View>
                             {errors.phone && <Text style={tw`text-red-500 text-[10px] font-bold mt-1 ml-4`}>{errors.phone}</Text>}
                         </View>
-
                         <View style={tw`mb-5`}>
                             <Text style={tw`text-blue-900/60 text-xs font-bold mb-2 ml-1 uppercase tracking-wider`}>Mật khẩu</Text>
                             <View style={[tw`flex-row items-center bg-white rounded-3xl px-5 h-16 shadow-lg shadow-blue-100/50 border`, errors.password ? tw`border-red-400` : tw`border-blue-50`]}>
                                 <View style={tw`bg-blue-50 p-2 rounded-2xl mr-3`}>
                                     <Lock size={20} color={errors.password ? "#F87171" : "#3B82F6"} />
                                 </View>
-                                <TextInput
-                                    style={tw`flex-1 text-blue-950 text-base font-semibold`}
+                                <AppTextInput
+                                    style={tw`flex-1 text-base font-semibold`}
                                     placeholder="Tối thiểu 8 ký tự"
                                     placeholderTextColor="#94A3B8"
                                     secureTextEntry={!passwordVisible}
@@ -246,6 +247,15 @@ export default function MemberSignUpScreen({ navigation }) {
                             </View>
                             {errors.password && <Text style={tw`text-red-500 text-[10px] font-bold mt-1 ml-4`}>{errors.password}</Text>}
                         </View>
+
+                        <PremiumInput
+                            label="Mã giới thiệu (Nếu có)"
+                            icon={Phone}
+                            value={user.referralCode}
+                            onChangeText={(val) => handleInputChange("referralCode", val)}
+                            placeholder="Số điện thoại người giới thiệu"
+                            keyboardType="phone-pad"
+                        />
                     </View>
 
                     {/* Agreement */}

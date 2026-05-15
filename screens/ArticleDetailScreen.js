@@ -13,31 +13,33 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import { ArrowLeft, User, Clock, Share2, Tag, Paperclip, FileText, ExternalLink, Trash2, Edit, Lock } from 'lucide-react-native';
-import { WebView } from 'react-native-webview';
+import UniversalWebView from '../components/UniversalWebView';
 import moment from 'moment';
 import { useAuth } from '../contextAPI/AuthProvider';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../utils/storage';
 import summaryAPI from '../common';
 import { useFocusEffect } from '@react-navigation/native';
 
 export default function ArticleDetailScreen({ navigation, route }) {
-    const { article: initialArticle } = route.params;
-    const [article, setArticle] = useState(initialArticle);
+    const { article: initialArticle } = route.params || {};
+    const [article, setArticle] = useState(initialArticle || null);
     const { user, isAuthenticated } = useAuth();
     const [deleting, setDeleting] = React.useState(false);
     const [webViewHeight, setWebViewHeight] = React.useState(100);
     const [loading, setLoading] = useState(false);
 
-    const isAuthor = isAuthenticated && user && article?.author?.userID?._id === user._id;
+    const isAuthor = useMemo(() => {
+        return isAuthenticated && user?._id && article?.author?.userID?._id === user._id;
+    }, [isAuthenticated, user?._id, article?.author?.userID?._id]);
 
     const fetchArticleDetail = async () => {
-        if (!article?._id) return;
+        const id = article?._id?.toString() || '';
+        if (!id || id.startsWith('ai-source-') || id.startsWith('google-source-')) return;
         setLoading(true);
         try {
-            const response = await fetch(summaryAPI.getArticleDetail.url.replace(':id', article._id));
+            const response = await fetch(summaryAPI.getArticleDetail.url.replace(':id', id));
             const data = await response.json();
-            if (data.success) {
-                // Correct mapping: data.data is the article object itself
+            if (data.success && data.data) {
                 setArticle(data.data);
             }
         } catch (error) {
@@ -49,7 +51,9 @@ export default function ArticleDetailScreen({ navigation, route }) {
 
     useFocusEffect(
         useCallback(() => {
-            fetchArticleDetail();
+            if (article?._id) {
+                fetchArticleDetail();
+            }
         }, [])
     );
 
@@ -78,8 +82,8 @@ export default function ArticleDetailScreen({ navigation, route }) {
                     onPress: async () => {
                         setDeleting(true);
                         try {
-                            const token = await AsyncStorage.getItem("@AuthToken");
-                            const response = await fetch(summaryAPI.deleteArticle.url.replace(':id', article._id), {
+                            const token = await storage.getItem("@AuthToken");
+                            const response = await fetch(summaryAPI.deleteArticle.url.replace(':id', article?._id), {
                                 method: summaryAPI.deleteArticle.method,
                                 headers: {
                                     "Authorization": `Bearer ${token}`
@@ -137,7 +141,7 @@ export default function ArticleDetailScreen({ navigation, route }) {
                     const wrapper = document.getElementById('content-wrapper');
                     if (wrapper) {
                         const height = wrapper.offsetHeight;
-                        window.ReactNativeWebView.postMessage(height);
+                        window.ReactNativeWebView.postMessage(String(height));
                     }
                 }
 
@@ -158,6 +162,17 @@ export default function ArticleDetailScreen({ navigation, route }) {
         </html>
         `;
     }, [article?.content]);
+
+    if (!article) {
+        return (
+            <SafeAreaView style={tw`flex-1 bg-white items-center justify-center`}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={tw`absolute top-12 left-4 p-2`}>
+                    <ArrowLeft size={24} color="#1F2937" />
+                </TouchableOpacity>
+                <Text style={tw`text-slate-400 text-base`}>Không tìm thấy bài viết.</Text>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={tw`flex-1 bg-white`}>
@@ -213,17 +228,39 @@ export default function ArticleDetailScreen({ navigation, route }) {
                         </View>
                     </View>
 
-                    <View style={{ height: webViewHeight, overflow: 'hidden' }}>
-                        <WebView
-                            originWhitelist={['*']}
-                            source={{ html: htmlContent }}
-                            style={tw`flex-1 bg-transparent`}
-                            scrollEnabled={false}
-                            onMessage={onMessage}
-                            javaScriptEnabled={true}
-                            showsVerticalScrollIndicator={false}
-                        />
+                    <View style={Platform.OS === 'web' ? tw`w-full` : { height: webViewHeight, overflow: 'hidden' }}>
+                        {loading && !article?.content ? (
+                            <View style={tw`py-10 items-center justify-center`}>
+                                <ActivityIndicator size="large" color="#2563EB" />
+                            </View>
+                        ) : htmlContent ? (
+                            <UniversalWebView
+                                originWhitelist={['*']}
+                                source={{ html: htmlContent, baseUrl: '' }}
+                                style={tw`flex-1 bg-transparent`}
+                                scrollEnabled={false}
+                                onMessage={onMessage}
+                                javaScriptEnabled={true}
+                                showsVerticalScrollIndicator={false}
+                                androidLayerType="software"
+                            />
+                        ) : (
+                            <View style={tw`py-6 items-center`}>
+                                <Text style={tw`text-slate-400 text-sm`}>Không có nội dung chi tiết.</Text>
+                            </View>
+                        )}
                     </View>
+
+                    {/* Nút xem nguồn gốc cho bài viết bên ngoài */}
+                    {article?.sourceUrl && (
+                        <TouchableOpacity 
+                            onPress={() => Linking.openURL(article.sourceUrl)}
+                            style={tw`mt-4 bg-blue-600 py-3 px-6 rounded-xl flex-row items-center justify-center`}
+                        >
+                            <ExternalLink size={16} color="#FFFFFF" />
+                            <Text style={tw`text-white font-bold ml-2`}>Xem nguồn gốc</Text>
+                        </TouchableOpacity>
+                    )}
 
                     {article?.attachments && article.attachments.length > 0 ? (
                         <View style={tw`mt-4 p-4 bg-slate-50 rounded-3xl border border-slate-100 shadow-sm`}>
@@ -233,7 +270,7 @@ export default function ArticleDetailScreen({ navigation, route }) {
                             </View>
 
                             {article.attachments.map((doc, idx) => {
-                                const isMemberOrLawyer = user?.role === 'member' || user?.role === 'partner_lawyer';
+                                const isMemberOrLawyer = user?.role === 'member' || user?.role === 'lawyer';
 
                                 const handleAttachmentPress = () => {
                                     if (!isMemberOrLawyer) {

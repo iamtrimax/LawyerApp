@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image } from 'react-native';
+import AppTextInput from '../helper/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
-import { ArrowLeft, User, Mail, Phone, Shield, Save, Edit2 } from 'lucide-react-native';
+import { ArrowLeft, User, Mail, Phone, Shield, Save, Edit2, Trophy, Users } from 'lucide-react-native';
 import { useAuth } from '../contextAPI/AuthProvider';
 import summaryAPI from '../common';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../utils/storage';
 
 const InfoRow = ({ icon: Icon, label, value, field, editable, isEditing, formData, setFormData }) => (
     <View style={tw`mb-5`}>
@@ -14,8 +15,8 @@ const InfoRow = ({ icon: Icon, label, value, field, editable, isEditing, formDat
             <Text style={tw`ml-2 text-slate-500 text-sm font-medium`}>{label}</Text>
         </View>
         {isEditing && editable ? (
-            <TextInput
-                style={tw`bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-semibold`}
+            <AppTextInput
+                style={tw`bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-semibold`}
                 value={formData[field]}
                 onChangeText={(text) => setFormData({ ...formData, [field]: text })}
                 placeholder={`Nhập ${label.toLowerCase()}`}
@@ -56,8 +57,10 @@ export default function UserProfileScreen({ navigation }) {
 
         setLoading(true);
         try {
-            const token = await AsyncStorage.getItem("@AuthToken");
-            const response = await fetch(summaryAPI.updateUser.url, {
+             const token = await storage.getAuthToken();
+             if (!token) return;
+
+             const response = await fetch(summaryAPI.updateUser.url, {
                 method: summaryAPI.updateUser.method,
                 headers: {
                     'Content-Type': 'application/json',
@@ -65,6 +68,8 @@ export default function UserProfileScreen({ navigation }) {
                 },
                 body: JSON.stringify(formData)
             });
+
+            if (response.status === 401) return;
 
             const data = await response.json();
             if (data.success) {
@@ -111,7 +116,7 @@ export default function UserProfileScreen({ navigation }) {
                 <View style={tw`items-center mb-8`}>
                     <View style={tw`w-24 h-24 rounded-full bg-blue-100 items-center justify-center border-4 border-white shadow-md`}>
                         {
-                            user.role === "lawyer" ? (
+                            user?.role === "lawyer" && user?.avatar ? (
                                 <Image source={{ uri: user.avatar }} style={tw`w-24 h-24 rounded-full`} />
                             ) : (
                                 <User size={48} color="#2563EB" />
@@ -123,6 +128,23 @@ export default function UserProfileScreen({ navigation }) {
                         <Text style={tw`text-blue-600 text-xs font-bold uppercase tracking-wider`}>
                             {user?.role === 'lawyer' ? 'Luật sư' : user?.role === 'member' ? 'Thành viên' : 'Khách hàng'}
                         </Text>
+                    </View>
+                </View>
+
+                {/* Points & Rank Card */}
+                <View style={tw`bg-white p-5 rounded-3xl shadow-sm border border-slate-100 mb-6 flex-row items-center justify-between`}>
+                    <View style={tw`flex-row items-center`}>
+                        <View style={tw`bg-amber-50 p-3 rounded-2xl mr-4`}>
+                            <Trophy size={24} color="#D97706" />
+                        </View>
+                        <View>
+                            <Text style={tw`text-slate-400 text-xs font-bold uppercase tracking-wider`}>Hạng hội viên</Text>
+                            <Text style={tw`text-slate-800 text-lg font-black`}>{user?.rank || "Bạc"}</Text>
+                        </View>
+                    </View>
+                    <View style={tw`items-end`}>
+                        <Text style={tw`text-blue-600 text-2xl font-black`}>{user?.points || 0}</Text>
+                        <Text style={tw`text-slate-400 text-[10px] font-bold`}>ĐIỂM TÍCH LŨY</Text>
                     </View>
                 </View>
 
@@ -167,15 +189,37 @@ export default function UserProfileScreen({ navigation }) {
                         setFormData={setFormData}
                     />
                 </View>
-
+                
                 {/* Nâng cấp tài khoản link (chỉ dành cho Member) */}
                 {!isEditing && user?.role === 'member' && (
                     <TouchableOpacity
                         onPress={() => navigation.navigate("LawyerUpgrade")}
-                        style={tw`mt-4 flex-row items-center justify-center p-4 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200`}
+                        style={tw`mt-8 flex-row items-center justify-center p-4 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200`}
                     >
                         <Shield size={20} color="white" />
                         <Text style={tw`ml-2 text-white font-bold`}>Nâng cấp lên Luật sư cộng tác</Text>
+                    </TouchableOpacity>
+                )}
+
+                {/* Referrals link */}
+                {!isEditing && (
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate("Referrals")}
+                        style={tw`mt-4 flex-row items-center justify-center p-4 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200`}
+                    >
+                        <Users size={20} color="white" />
+                        <Text style={tw`ml-2 text-white font-bold`}>Danh sách giới thiệu</Text>
+                    </TouchableOpacity>
+                )}
+
+                {/* Giới thiệu ứng dụng link */}
+                {!isEditing && (
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate("AboutApp")}
+                        style={tw`mt-4 flex-row items-center justify-center p-4 bg-white rounded-2xl border border-slate-100 shadow-sm`}
+                    >
+                        <Shield size={20} color="#2563EB" />
+                        <Text style={tw`ml-2 text-blue-600 font-bold`}>Giới thiệu ứng dụng</Text>
                     </TouchableOpacity>
                 )}
 

@@ -5,6 +5,9 @@ import {
   Text,
   StatusBar,
   TouchableOpacity,
+  Alert,
+  Image,
+  Platform,
 } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import tw from "twrnc";
@@ -22,6 +25,8 @@ import {
   ShieldCheck,
   Sparkles,
   ChevronRight,
+  BookOpen,
+  Info,
 } from "lucide-react-native";
 
 // Import các component đã tạo ở trên
@@ -31,8 +36,8 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../contextAPI/AuthProvider";
 import { registerForPushNotificationsAsync } from "../helper/registerForPushNotificationsAsync";
 import summaryAPI, { socket_url } from "../common";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { io } from "socket.io-client";
+import storage from "../utils/storage";
+import { useSocket } from "../contextAPI/SocketProvider";
 
 const SOCKET_URL = socket_url;
 
@@ -40,20 +45,32 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const { isAuthenticated, user, fetchUserDetail } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
-  const socket = useRef(null);
+  const { socket } = useSocket();
   const updateToken = async () => {
-    const token = await registerForPushNotificationsAsync();
-    console.log("Token:", token);
-    await fetch(summaryAPI.updateToken.url, {
-      method: summaryAPI.updateToken.method,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        userId: user._id,
-        token: token,
-      }),
-    });
+    try {
+      const pushToken = await registerForPushNotificationsAsync();
+      if (!pushToken) return;
+
+      const authToken = await storage.getItem("@AuthToken");
+      const response = await fetch(summaryAPI.updateToken.url, {
+        method: summaryAPI.updateToken.method,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          userId: user?._id,
+          token: pushToken,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        // Cập nhật Push Token thành công
+      }
+    } catch (error) {
+      // Lỗi im lặng trong production
+    }
   }
   // HomeScreen.js
   useEffect(() => {
@@ -75,17 +92,21 @@ export default function HomeScreen() {
   const checkUnreadMessages = async () => {
     if (!isAuthenticated) return;
     try {
-      const token = await AsyncStorage.getItem("@AuthToken");
+      const token = await storage.getAuthToken();
+      if (!token) return;
+
       const response = await fetch(summaryAPI.getConversations.url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
+
+      if (response.status === 401) return;
       const data = await response.json();
       if (data.success) {
         let totalUnread = 0;
         data.data.forEach(conv => {
-          if (conv.lastMessage && !conv.lastMessage.isRead && conv.lastMessage.senderID !== user._id) {
+          if (conv.lastMessage && !conv.lastMessage.isRead && conv.lastMessage.senderID !== user?._id) {
             totalUnread += 1;
           }
         });
@@ -103,27 +124,21 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !socket) return;
 
-    socket.current = io(SOCKET_URL);
-
-    socket.current.on('connect', () => {
-      console.log('Home Socket connected');
-    });
-
-    socket.current.on('receive_message', (newMessage) => {
+    const handleReceiveMessage = (newMessage) => {
       console.log("Home: New Message Received:", newMessage);
-      if (newMessage.senderID !== user._id) {
+      if (newMessage.senderID !== user?._id) {
         setUnreadCount(prev => prev + 1);
       }
-    });
+    };
+
+    socket.on('receive_message', handleReceiveMessage);
 
     return () => {
-      if (socket.current) {
-        socket.current.disconnect();
-      }
+      socket.off('receive_message', handleReceiveMessage);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, socket, user?._id]);
   return (
     <SafeAreaProvider>
       <View style={tw`flex-1 bg-blue-200`}>
@@ -139,24 +154,27 @@ export default function HomeScreen() {
           {/* KHỐI KHÁCH HÀNG & THÀNH VIÊN */}
           {(!isAuthenticated || user?.role === "customer" || user?.role === "member") && (
             <>
-              {/* 2. Phần chào hỏi người dùng */}
-              <View style={tw`px-4 pt-6 flex-row items-center justify-between`}>
-                <View style={tw`flex-1`}>
-                  <Text style={tw`text-2xl font-black text-blue-950`}>
-                    {user?.role === "member" ? "Chào Thành viên!" : "Xin chào!"}
-                  </Text>
-                  <Text style={tw`text-slate-500 font-medium mt-1`}>
-                    {user?.role === "member"
-                      ? "Bạn có các dịch vụ đặc quyền hôm nay."
-                      : "Hôm nay chúng tôi có thể giúp gì cho bạn?"}
-                  </Text>
+              {/* 2. Phần chào hỏi người dùng - Bố cục Căn giữa Chuyên nghiệp */}
+              <View style={tw`px-4 pt-6  w-full`}>
+                <Text style={tw`text-2xl font-black text-blue-950 mb-2`}>
+                  {user?.role === "member" ? "Chào Thành viên!" : "Xin chào!"}
+                </Text>
+                
+                <View style={tw`items-start mt-1`}>
+                  {user?.role === "member" ? (
+                    <Text style={tw`text-slate-500 font-medium`}>
+                      Bạn có các dịch vụ đặc quyền hôm nay.
+                    </Text>
+                  ) : (
+                    <View style={tw`flex-row flex-wrap items-center mt-1`}>
+                      <Image
+                        source={require("../assets/logo-removebg-preview.png")}
+                        style={{ width: 110, height: 100, resizeMode: "cover"}}
+                      />
+                      <Text style={tw`text-slate-500 text-20px`}>có thể giúp gì cho bạn?</Text>
+                    </View>
+                  )}
                 </View>
-                {user?.role === "member" && (
-                  <View style={tw`bg-blue-600/10 px-3 py-1.5 rounded-2xl border border-blue-200 flex-row items-center`}>
-                    <ShieldCheck size={16} color="#2563EB" />
-                    <Text style={tw`ml-1.5 text-blue-700 font-bold text-xs uppercase tracking-wider`}>Thành viên</Text>
-                  </View>
-                )}
               </View>
 
               {/* Banner Nâng cấp (Chỉ dành cho Member) */}
@@ -194,22 +212,12 @@ export default function HomeScreen() {
                 <View style={tw`flex-row flex-wrap justify-between`}>
                   <BlockControl
                     mode="grid"
-                    title="Lịch của tôi"
-                    icon={Calendar}
-                    color="blue"
-                    disabled={!isAuthenticated}
-
-                    onPress={() => navigation.navigate("Appointments")}
+                    title={isAuthenticated ? "Tư vấn Chat" : "Tư vấn chat với AI"}
+                    icon={MessageSquare}
+                    color="rose"
+                    onPress={() => isAuthenticated ? navigation.navigate("ChatList") : navigation.navigate("ChatWithAI")}
+                    badge={unreadCount}
                   />
-                  <BlockControl
-                    mode="grid"
-                    title="Đặt luật sư"
-                    icon={Users}
-                    color="emerald"
-                    disabled={!isAuthenticated}
-                    onPress={() => navigation.navigate("LawyerDiscovery")}
-                  />
-                  {/* Thêm một block trống hoặc tìm kiếm nhanh */}
                   <BlockControl
                     mode="grid"
                     title="Tìm kiếm luật sư"
@@ -218,6 +226,50 @@ export default function HomeScreen() {
                     onPress={() => navigation.navigate("LawyerDiscovery")}
 
                   />
+                  <BlockControl
+                    mode="grid"
+                    title="Soạn thảo văn bản"
+                    icon={FileTextIcon}
+                    color="emerald"
+                    onPress={() => {
+                      if (!isAuthenticated) {
+                        const title = "Yêu cầu đăng nhập";
+                        const message = "Bạn cần đăng nhập để sử dụng tính năng Soạn thảo văn bản.";
+                        
+                        if (Platform.OS === 'web') {
+                          if (window.confirm(`${title}\n\n${message}`)) {
+                            navigation.navigate("Login");
+                          }
+                        } else {
+                          Alert.alert(
+                            title,
+                            message,
+                            [
+                              { text: "Hủy", style: "cancel" },
+                              {
+                                text: "Đăng nhập",
+                                onPress: () => navigation.navigate("Login"),
+                              },
+                            ]
+                          );
+                        }
+                      } else {
+                        navigation.navigate("LegalDocumentComposer");
+                      }
+                    }}
+                  />
+                  <BlockControl
+                    mode="grid"
+                    title="Lịch của tôi"
+                    icon={Calendar}
+                    color="blue"
+                    disabled={!isAuthenticated}
+
+                    onPress={() => navigation.navigate("Appointments")}
+                  />
+
+                  {/* Thêm một block trống hoặc tìm kiếm nhanh */}
+
                   <BlockControl
                     title="Thư viện pháp luật"
                     subtitle="Tra cứu văn bản, đơn từ mẫu"
@@ -229,7 +281,7 @@ export default function HomeScreen() {
                   <BlockControl
                     mode="grid"
                     title="Bài viết pháp luật"
-                    icon={FileTextIcon}
+                    icon={BookOpen}
                     color="indigo"
                     onPress={() => navigation.navigate("LegalArticles")}
                   />
@@ -238,15 +290,39 @@ export default function HomeScreen() {
                     title="Legal Resources"
                     icon={Globe}
                     color="sky"
-                    onPress={() => navigation.navigate("LegalResources")}
+                    onPress={() => {
+                      if (!isAuthenticated) {
+                        const title = "Yêu cầu đăng nhập";
+                        const message = "Bạn cần đăng nhập để sử dụng tính năng Legal Resources.";
+                        
+                        if (Platform.OS === 'web') {
+                          if (window.confirm(`${title}\n\n${message}`)) {
+                            navigation.navigate("Login");
+                          }
+                        } else {
+                          Alert.alert(
+                            title,
+                            message,
+                            [
+                              { text: "Hủy", style: "cancel" },
+                              {
+                                text: "Đăng nhập",
+                                onPress: () => navigation.navigate("Login"),
+                              },
+                            ]
+                          );
+                        }
+                      } else {
+                        navigation.navigate("LegalResources");
+                      }
+                    }}
                   />
                   <BlockControl
                     mode="grid"
-                    title="Tư vấn Chat"
-                    icon={MessageSquare}
-                    color="rose"
-                    onPress={() => navigation.navigate("ChatList")}
-                    badge={unreadCount}
+                    title="Giới thiệu app"
+                    icon={Info}
+                    color="blue"
+                    onPress={() => navigation.navigate("AboutApp")}
                   />
                 </View>
               </View>
@@ -313,7 +389,6 @@ export default function HomeScreen() {
                   subtitle="Cập nhật Profile & Đánh giá"
                   icon={Award}
                   color="amber"
-                  disabled={!user.isApproved}
                   onPress={() => navigation.navigate("LawyerProfile")}
                 />
               </View>
@@ -332,7 +407,6 @@ export default function HomeScreen() {
                   icon={Gavel}
                   mode="grid"
                   color="slate"
-                  disabled={!user.isApproved}
                   onPress={() => navigation.navigate("LegalLibrary")}
                 />
                 <BlockControl
@@ -340,7 +414,6 @@ export default function HomeScreen() {
                   title="Bài viết pháp luật"
                   icon={FileTextIcon}
                   color="indigo"
-                  disabled={!user.isApproved}
                   onPress={() => navigation.navigate("LegalArticles")}
                 />
                 <BlockControl
@@ -348,8 +421,14 @@ export default function HomeScreen() {
                   title="Legal Resources"
                   icon={Globe}
                   color="sky"
-                  disabled={!user.isApproved}
                   onPress={() => navigation.navigate("LegalResources")}
+                />
+                <BlockControl
+                  mode="grid"
+                  title="Giới thiệu app"
+                  icon={Info}
+                  color="blue"
+                  onPress={() => navigation.navigate("AboutApp")}
                 />
               </View>
             </View>
@@ -360,14 +439,6 @@ export default function HomeScreen() {
               <Text style={tw`text-lg font-bold text-gray-800 mb-4`}>
                 Dành cho đối tác Luật sư
               </Text>
-
-              <BlockControl
-                title="Bạn là Luật sư?"
-                subtitle="Tham gia cộng đồng luật sư uy tín"
-                icon={Award}
-                color="indigo"
-                onPress={() => navigation.navigate("lawyer-signup")}
-              />
 
               <BlockControl
                 title="Cổng Đăng nhập Luật sư"

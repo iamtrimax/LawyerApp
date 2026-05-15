@@ -1,7 +1,6 @@
 import {
     View,
     Text,
-    TextInput,
     TouchableOpacity,
     ScrollView,
     Alert,
@@ -9,12 +8,13 @@ import {
     KeyboardAvoidingView,
     Platform
 } from 'react-native';
+import AppTextInput from '../helper/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import { ArrowLeft, Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react-native';
 import { useAuth } from '../contextAPI/AuthProvider';
 import summaryAPI from '../common';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../utils/storage';
 import { useState } from 'react';
 
 export default function ChangePasswordScreen({ navigation }) {
@@ -50,7 +50,7 @@ export default function ChangePasswordScreen({ navigation }) {
 
         setLoading(true);
         try {
-            const token = await AsyncStorage.getItem("@AuthToken");
+            const token = await storage.getItem("@AuthToken");
             const response = await fetch(summaryAPI.changePassword.url, {
                 method: summaryAPI.changePassword.method,
                 headers: {
@@ -116,10 +116,10 @@ export default function ChangePasswordScreen({ navigation }) {
                             <Text style={tw`text-slate-700 font-semibold mb-2 ml-1`}>Mật khẩu hiện tại</Text>
                             <View style={tw`flex-row items-center bg-slate-50 border border-slate-200 rounded-2xl px-4`}>
                                 <Lock size={20} color="#64748B" />
-                                <TextInput
+                                <AppTextInput
                                     placeholder="Nhập mật khẩu cũ"
                                     secureTextEntry={!showPassword.old}
-                                    style={tw`flex-1 h-14 ml-3 text-slate-800`}
+                                    style={tw`flex-1 h-14 ml-3`}
                                     value={formData.oldPassword}
                                     onChangeText={(text) => setFormData({ ...formData, oldPassword: text })}
                                     placeholderTextColor="#94A3B8"
@@ -135,10 +135,10 @@ export default function ChangePasswordScreen({ navigation }) {
                             <Text style={tw`text-slate-700 font-semibold mb-2 ml-1`}>Mật khẩu mới</Text>
                             <View style={tw`flex-row items-center bg-slate-50 border border-slate-200 rounded-2xl px-4`}>
                                 <Lock size={20} color="#2563EB" />
-                                <TextInput
+                                <AppTextInput
                                     placeholder="Nhập mật khẩu mới"
                                     secureTextEntry={!showPassword.new}
-                                    style={tw`flex-1 h-14 ml-3 text-slate-800`}
+                                    style={tw`flex-1 h-14 ml-3`}
                                     value={formData.newPassword}
                                     onChangeText={(text) => setFormData({ ...formData, newPassword: text })}
                                     placeholderTextColor="#94A3B8"
@@ -154,10 +154,10 @@ export default function ChangePasswordScreen({ navigation }) {
                             <Text style={tw`text-slate-700 font-semibold mb-2 ml-1`}>Xác nhận mật khẩu mới</Text>
                             <View style={tw`flex-row items-center bg-slate-50 border border-slate-200 rounded-2xl px-4`}>
                                 <Lock size={20} color="#2563EB" />
-                                <TextInput
+                                <AppTextInput
                                     placeholder="Nhập lại mật khẩu mới"
                                     secureTextEntry={!showPassword.confirm}
-                                    style={tw`flex-1 h-14 ml-3 text-slate-800`}
+                                    style={tw`flex-1 h-14 ml-3`}
                                     value={formData.confirmPassword}
                                     onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
                                     placeholderTextColor="#94A3B8"

@@ -32,10 +32,14 @@ export default function LawerLoginScreen({ navigation }) {
   const validateForm = () => {
     let tempErrors = {};
     const emailRegex = /\S+@\S+\.\S+/;
+    const phoneRegex = /^[0-9]{10,11}$/;
 
-    if (!user.email.trim()) tempErrors.email = "Email không được để trống";
-    else if (!emailRegex.test(user.email))
-      tempErrors.email = "Email không đúng định dạng";
+    if (!user.email.trim()) {
+      tempErrors.email = "Vui lòng nhập email hoặc số điện thoại";
+    } else if (!emailRegex.test(user.email) && !phoneRegex.test(user.email)) {
+      tempErrors.email = "Email hoặc số điện thoại không đúng định dạng";
+    }
+
     if (!user.password.trim())
       tempErrors.password = "Mật khẩu không được để trống";
 
@@ -105,12 +109,12 @@ export default function LawerLoginScreen({ navigation }) {
           <View style={tw`gap-y-4`}>
             {/* Email Input */}
             <InputField
-              label="Email"
+              label="Email hoặc Số điện thoại"
               icon={Mail}
               user={user}
               field="email"
-              placeholder="email"
-              keyboardType="email-address"
+              placeholder="Nhập email hoặc số điện thoại"
+              keyboardType="default"
               autoCapitalize="none"
               error={errors.email}
               handleInputChange={handleInputChange}
@@ -164,9 +168,9 @@ export default function LawerLoginScreen({ navigation }) {
           </View>
           {/* Link chuyển sang Đăng ký */}
           <View style={tw`flex-row justify-center mt-10 mb-6`}>
-            <Text style={tw`text-gray-500`}>Chưa có tài khoản? </Text>
+            <Text style={tw`text-gray-500`}>Chưa có tài khoản luật sư? </Text>
             <TouchableOpacity
-              onPress={() => navigation.navigate("SignUp", { navigation })}
+              onPress={() => navigation.navigate("lawyer-signup", { navigation })}
             >
               <Text style={tw`text-blue-700 font-bold`}>Đăng ký ngay</Text>
             </TouchableOpacity>

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import { ArrowLeft, Calendar, Clock, User, Phone, Mail, MapPin, FileText, CreditCard, File } from 'lucide-react-native';
 import summaryAPI from '../common';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../utils/storage';
 import moment from 'moment';
 
 export default function AppointmentsScreen({ navigation }) {
@@ -14,7 +14,7 @@ export default function AppointmentsScreen({ navigation }) {
 
     const fetchBookings = async () => {
         try {
-            const token = await AsyncStorage.getItem("@AuthToken");
+            const token = await storage.getItem("@AuthToken");
             const response = await fetch(summaryAPI.getBookings.url, {
                 method: summaryAPI.getBookings.method,
                 headers: {
@@ -63,7 +63,13 @@ export default function AppointmentsScreen({ navigation }) {
                     </View>
                     <View style={tw`ml-3 flex-1`}>
                         <Text style={tw`text-lg font-bold text-slate-800`}>{lawyerInfo.fullname || "Luật sư"}</Text>
-                        <Text style={tw`text-slate-500 text-sm`}>{lawyer.specialty || "Chuyên gia pháp lý"}</Text>
+                        <Text style={tw`text-slate-500 text-sm`}>
+                            {Array.isArray(lawyer.specialty) 
+                                ? lawyer.specialty.join(', ') 
+                                : (typeof lawyer.specialty === 'string' 
+                                    ? lawyer.specialty.split(',').map(s => s.trim()).join(', ') 
+                                    : (lawyer.specialty || 'Chuyên gia pháp lý'))}
+                        </Text>
                     </View>
                     <View style={tw`items-end`}>
                         <View style={[

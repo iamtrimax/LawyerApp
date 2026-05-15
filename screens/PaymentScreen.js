@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Linking } from 'react-native';
 
-import summaryAPI from '../common';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import summaryAPI, { socket_url } from '../common';
+import storage from '../utils/storage';
 import tw from 'twrnc';
 import { ArrowLeft, CreditCard, Building2, CheckCircle2, Calendar, Clock, MapPin } from 'lucide-react-native';
 import io from "socket.io-client/dist/socket.io.js";
@@ -46,7 +46,7 @@ export default function PaymentScreen({ navigation, route }) {
         setLoading(true);
 
         try {
-            const token = await AsyncStorage.getItem("@AuthToken");
+            const token = await storage.getItem("@AuthToken");
 
             const response = await fetch(summaryAPI.createUrlPayment.url, {
                 method: summaryAPI.createUrlPayment.method,
@@ -84,7 +84,7 @@ export default function PaymentScreen({ navigation, route }) {
 
     useEffect(() => {
         // Use the IP address provided by the user
-        const socket = io("http://98.89.3.141", {
+        const socket = io(socket_url, {
             transports: ['websocket'], // Force websocket for better reliability in RN
         });
 
@@ -141,7 +141,13 @@ export default function PaymentScreen({ navigation, route }) {
                         />
                         <View style={tw`ml-3 flex-1`}>
                             <Text style={tw`font-bold text-slate-800 text-base`}>{lawyer.userID?.fullname || "Luật sư"}</Text>
-                            <Text style={tw`text-slate-500 text-sm`}>{lawyer.specialty}</Text>
+                            <Text style={tw`text-slate-500 text-sm`}>
+                                {Array.isArray(lawyer.specialty) 
+                                    ? lawyer.specialty.join(', ') 
+                                    : (typeof lawyer.specialty === 'string' 
+                                        ? lawyer.specialty.split(',').map(s => s.trim()).join(', ') 
+                                        : (lawyer.specialty || 'Chuyên gia pháp lý'))}
+                            </Text>
                         </View>
                     </View>
 

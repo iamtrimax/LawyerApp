@@ -11,7 +11,7 @@ import {
     Share
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
+import UniversalWebView from '../components/UniversalWebView';
 import tw from 'twrnc';
 import {
     ArrowLeft,
@@ -31,7 +31,7 @@ import moment from 'moment';
 import summaryAPI from '../common';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contextAPI/AuthProvider';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../utils/storage';
 
 export default function LegalFormDetailScreen({ navigation, route }) {
     const { form: initialForm } = route.params;
@@ -168,7 +168,7 @@ export default function LegalFormDetailScreen({ navigation, route }) {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            const token = await AsyncStorage.getItem('@AuthToken');
+                            const token = await storage.getItem('@AuthToken');
                             const response = await fetch(summaryAPI.deleteLegalForm.url.replace(':id', form._id), {
                                 method: 'DELETE',
                                 headers: { 'Authorization': `Bearer ${token}` }
@@ -258,8 +258,8 @@ export default function LegalFormDetailScreen({ navigation, route }) {
                             <Text style={tw`text-lg font-bold text-slate-800 ml-2`}>Mô tả chi tiết</Text>
                         </View>
                         {form.description ? (
-                            <View style={{ height: webViewHeight, overflow: 'hidden' }}>
-                                <WebView
+                            <View style={Platform.OS === 'web' ? tw`w-full` : { height: webViewHeight, overflow: 'hidden' }}>
+                                <UniversalWebView
                                     originWhitelist={['*']}
                                     source={{ html: htmlContent }}
                                     style={tw`flex-1 bg-transparent`}

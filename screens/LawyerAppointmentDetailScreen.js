@@ -13,7 +13,7 @@ import {
     Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
+import UniversalWebView from '../components/UniversalWebView';
 import tw from 'twrnc';
 import {
     ArrowLeft,
@@ -33,7 +33,7 @@ import {
 } from 'lucide-react-native';
 import moment from 'moment';
 import summaryAPI from '../common';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../utils/storage';
 
 export default function LawyerAppointmentDetailScreen({ navigation, route }) {
     const { appointment } = route.params;
@@ -63,46 +63,73 @@ export default function LawyerAppointmentDetailScreen({ navigation, route }) {
     const statusStyle = getStatusStyle(currentAppointment.status);
 
     const handleConfirmPayment = async () => {
+        const title = "Xác nhận thanh toán";
+        const message = "Bạn có chắc chắn muốn xác nhận khách hàng này đã thanh toán thủ công?";
+
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm(`${title}\n\n${message}`);
+            if (confirmed) {
+                await executeConfirmPayment();
+            }
+            return;
+        }
+
         Alert.alert(
-            "Xác nhận thanh toán",
-            "Bạn có chắc chắn muốn xác nhận khách hàng này đã thanh toán thủ công?",
+            title,
+            message,
             [
                 { text: "Hủy", style: "cancel" },
                 {
                     text: "Xác nhận",
-                    onPress: async () => {
-                        try {
-                            setConfirming(true);
-                            const token = await AsyncStorage.getItem("@AuthToken");
-                            const response = await fetch(summaryAPI.confirmPayment.url.replace(':bookingId', currentAppointment._id), {
-                                method: summaryAPI.confirmPayment.method,
-                                headers: {
-                                    'Authorization': `Bearer ${token}`,
-                                    'Content-Type': 'application/json'
-                                }
-                            });
-
-                            const data = await response.json();
-                            if (data.success) {
-                                Alert.alert("Thành công", "Đã xác nhận thanh toán thành công.");
-                                setCurrentAppointment({
-                                    ...currentAppointment,
-                                    paymentStatus: 'Paid',
-                                    status: 'Confirmed' // Optional: auto confirm appointment if paid
-                                });
-                            } else {
-                                Alert.alert("Lỗi", data.message || "Không thể xác nhận thanh toán.");
-                            }
-                        } catch (error) {
-                            console.error("Confirm Payment Error:", error);
-                            Alert.alert("Lỗi", "Đã xảy ra lỗi khi kết nối với máy chủ.");
-                        } finally {
-                            setConfirming(false);
-                        }
-                    }
+                    onPress: executeConfirmPayment
                 }
             ]
         );
+    };
+
+    const executeConfirmPayment = async () => {
+        try {
+            setConfirming(true);
+            const token = await storage.getItem("@AuthToken");
+            const response = await fetch(summaryAPI.confirmPayment.url.replace(':bookingId', currentAppointment._id), {
+                method: summaryAPI.confirmPayment.method,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                if (Platform.OS === 'web') {
+                    window.alert("Thành công: Đã xác nhận thanh toán thành công.");
+                } else {
+                    Alert.alert("Thành công", "Đã xác nhận thanh toán thành công.");
+                }
+                
+                setCurrentAppointment({
+                    ...currentAppointment,
+                    paymentStatus: 'Paid',
+                    status: 'Confirmed'
+                });
+            } else {
+                const errMsg = data.message || "Không thể xác nhận thanh toán.";
+                if (Platform.OS === 'web') {
+                    window.alert(`Lỗi: ${errMsg}`);
+                } else {
+                    Alert.alert("Lỗi", errMsg);
+                }
+            }
+        } catch (error) {
+            console.error("Confirm Payment Error:", error);
+            if (Platform.OS === 'web') {
+                window.alert("Lỗi: Đã xảy ra lỗi khi kết nối với máy chủ.");
+            } else {
+                Alert.alert("Lỗi", "Đã xảy ra lỗi khi kết nối với máy chủ.");
+            }
+        } finally {
+            setConfirming(false);
+        }
     };
 
     const openLink = (url) => {
@@ -323,7 +350,7 @@ export default function LawyerAppointmentDetailScreen({ navigation, route }) {
                                     />
                                 ) : (
                                     <View style={tw`flex-1 w-full bg-white rounded-3xl overflow-hidden`}>
-                                        <WebView
+                                        <UniversalWebView
                                             source={{
                                                 uri: (Platform.OS === 'android' && typeof selectedDoc === 'string' && selectedDoc.toLowerCase().includes('.pdf'))
                                                     ? `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(selectedDoc)}`

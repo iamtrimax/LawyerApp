@@ -33,16 +33,62 @@ import ResetPasswordScreen from "../screens/ResetPasswordScreen";
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
 import MemberSignUpScreen from "../screens/MemberSignUpScreen";
 import LawyerUpgradeScreen from "../screens/LawyerUpgradeScreen";
+import LawyerProfileScreen from "../screens/LawyerProfileScreen";
+import LegalDocumentComposerScreen from "../screens/LegalDocumentComposerScreen";
+import ReferralsScreen from "../screens/ReferralsScreen";
+import CallScreen from "../screens/CallScreen";
+import { useSocket } from "../contextAPI/SocketProvider";
+import { useNavigation } from "@react-navigation/native";
+import { useEffect } from "react";
+import AboutAppScreen from "../screens/AboutAppScreen";
+import ChatWithAIScreen from "../screens/ChatWithAIScreen";
+
 const stack = createNativeStackNavigator();
+
+const CallObserver = () => {
+    const { callStatus } = useSocket();
+    const navigation = useNavigation();
+
+    useEffect(() => {
+        // Kiểm tra xem navigator đã sẵn sàng chưa trước khi chuyển màn hình
+        if (navigation && (callStatus === 'receiving' || callStatus === 'calling' || callStatus === 'connected')) {
+            try {
+                // Kiểm tra xem chúng ta đã ở màn hình CallScreen chưa để tránh navigate lặp lại
+                const routes = navigation.getState()?.routes;
+                const currentRoute = routes ? routes[routes.length - 1]?.name : null;
+                
+                if (currentRoute !== 'CallScreen') {
+                    navigation.navigate('CallScreen');
+                }
+            } catch (e) {
+                console.warn("Navigation logic failed, likely navigator not ready:", e);
+                // Thử lại sau 500ms nếu lỗi
+                const timer = setTimeout(() => {
+                    if (callStatus !== 'idle') navigation.navigate('CallScreen');
+                }, 500);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [callStatus, navigation]);
+
+    return null;
+};
+
 export default function AppNavigation() {
   return (
     <NavigationContainer>
       <SafeAreaProvider>
+        <CallObserver />
         <stack.Navigator>
           <stack.Screen
             name="Home"
             options={{ headerShown: false }}
             component={HomeScreen}
+          />
+          <stack.Screen
+            name="AboutApp"
+            options={{ headerShown: false }}
+            component={AboutAppScreen}
           />
           <stack.Screen
             name="Login"
@@ -170,6 +216,11 @@ export default function AppNavigation() {
             component={ChatDetailScreen}
           />
           <stack.Screen
+            name="ChatWithAI"
+            options={{ headerShown: false }}
+            component={ChatWithAIScreen}
+          />
+          <stack.Screen
             name="UserProfile"
             options={{ headerShown: false }}
             component={UserProfileScreen}
@@ -198,6 +249,26 @@ export default function AppNavigation() {
             name="LawyerUpgrade"
             options={{ headerShown: false }}
             component={LawyerUpgradeScreen}
+          />
+          <stack.Screen
+            name="LawyerProfile"
+            options={{ headerShown: false }}
+            component={LawyerProfileScreen}
+          />
+          <stack.Screen
+            name="LegalDocumentComposer"
+            options={{ headerShown: false }}
+            component={LegalDocumentComposerScreen}
+          />
+          <stack.Screen
+            name="Referrals"
+            options={{ headerShown: false }}
+            component={ReferralsScreen}
+          />
+          <stack.Screen
+            name="CallScreen"
+            options={{ headerShown: false, presentation: 'fullScreenModal' }}
+            component={CallScreen}
           />
         </stack.Navigator>
       </SafeAreaProvider>

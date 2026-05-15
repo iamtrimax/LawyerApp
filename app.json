@@ -1,14 +1,13 @@
 {
   "expo": {
-    "name": "firstApp",
+    "name": "Luật Sư Tổng Hợp",
     "slug": "firstApp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo-removebg-preview.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/logo-removebg-preview.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -21,13 +20,15 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/play_store_512.png",
+        "backgroundColor": "#004221"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.trimax.firstApp",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/play_store_512.png"
     },
     "extra": {
       "eas": {
@@ -36,7 +37,52 @@
     },
     "owner": "trimax",
     "plugins": [
-      "@react-native-community/datetimepicker"
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "Ứng dụng cần camera để thực hiện cuộc gọi video.",
+          "microphonePermission": "Ứng dụng cần microphone để thực hiện cuộc gọi."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/adaptive-icon.png",
+          "color": "#004221",
+          "sounds": ["./assets/ringtone.mp3"]
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Ứng dụng cần quyền truy cập thư viện ảnh để bạn có thể tải lên ảnh đại diện và thẻ hành nghề.",
+          "cameraPermission": "Ứng dụng cần quyền truy cập camera để bạn có thể chụp ảnh trực tiếp."
+        }
+      ],
+      "expo-document-picker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "newArchEnabled": true,
+            "isBridgelessEnabled": true,
+            "usesCleartextTraffic": true,
+            "permissions": [
+              "android.permission.CAMERA",
+              "android.permission.RECORD_AUDIO",
+              "android.permission.ACCESS_NETWORK_STATE",
+              "android.permission.CHANGE_NETWORK_STATE",
+              "android.permission.MODIFY_AUDIO_SETTINGS",
+              "android.permission.INTERNET",
+              "android.permission.USE_FULL_SCREEN_INTENT",
+              "android.permission.SCHEDULE_EXACT_ALARM",
+              "android.permission.FOREGROUND_SERVICE",
+              "android.permission.WAKE_LOCK",
+              "android.permission.VIBRATE"
+            ]
+          }
+        }
+      ]
     ]
   }
 }

@@ -1,3 +1,8 @@
+import { Platform } from 'react-native';
+
+if (Platform.OS !== 'web') {
+  require('react-native-webrtc');
+}
 import { registerRootComponent } from 'expo';
 
 import App from './App';

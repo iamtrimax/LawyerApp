@@ -12,12 +12,12 @@ import {
 } from 'react-native';
 import tw from 'twrnc';
 import { ChevronLeft, Plus, Trash2, Clock, AlertCircle } from 'lucide-react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import summaryAPI from '../common';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import storage from '../utils/storage';
+ 
 const DAYS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
-
+ 
 export default function ManageAvailability({ navigation }) {
     const [availability, setAvailability] = useState(
         DAYS.map((day) => ({ day, active: false, slots: [] }))
@@ -26,14 +26,14 @@ export default function ManageAvailability({ navigation }) {
     // State điều khiển Picker
     const [showPicker, setShowPicker] = useState(false);
     const [pickerConfig, setPickerConfig] = useState({ dayIdx: null, slotIdx: null, type: 'start' });
-    const [tempDate, setTempDate] = useState(new Date()); // Temp date for iOS picker
-
+    const [tempDate, setTempDate] = useState(new Date()); 
+ 
     // 1. Logic mở bộ chọn giờ
     const openPicker = (dayIdx, slotIdx, type) => {
         try {
             const currentSlot = availability[dayIdx]?.slots?.[slotIdx];
             if (!currentSlot) return;
-
+ 
             const timeStr = currentSlot[type]; // "HH:mm"
             
             // Parse "HH:mm" to Date object
@@ -46,7 +46,7 @@ export default function ManageAvailability({ navigation }) {
                     date.setSeconds(0);
                 }
             }
-
+ 
             setTempDate(date);
             setPickerConfig({ dayIdx, slotIdx, type });
             setShowPicker(true);
@@ -57,41 +57,23 @@ export default function ManageAvailability({ navigation }) {
             setShowPicker(true);
         }
     };
-
-    // 2. Cập nhật giờ
-    // Android: Handle immediately
-    // iOS: Update temp state only
-    const onTimeChange = (event, selectedDate) => {
-        if (Platform.OS === 'android') {
-            setShowPicker(false);
-            if (event.type === 'set' && selectedDate) {
-                saveTime(selectedDate);
-            }
-        } else {
-            // iOS: Just update temp state
-            if (selectedDate) setTempDate(selectedDate);
+ 
+    // 2. Xử lý khi chọn giờ xong
+    const handleConfirm = (selectedDate) => {
+        if (selectedDate) {
+            const { dayIdx, slotIdx, type } = pickerConfig;
+            const hours = selectedDate.getHours().toString().padStart(2, '0');
+            const minutes = selectedDate.getMinutes().toString().padStart(2, '0');
+            const timeStr = `${hours}:${minutes}`;
+ 
+            const updated = [...availability];
+            updated[dayIdx].slots[slotIdx][type] = timeStr;
+            setAvailability(updated);
         }
-    };
-
-    // Helper to save time to availability state
-    const saveTime = (date) => {
-        const { dayIdx, slotIdx, type } = pickerConfig;
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        const timeStr = `${hours}:${minutes}`;
-
-        const updated = [...availability];
-        updated[dayIdx].slots[slotIdx][type] = timeStr;
-        setAvailability(updated);
-    };
-
-    // iOS Specific Handlers
-    const confirmIOSPicker = () => {
-        saveTime(tempDate);
         setShowPicker(false);
     };
-
-    const cancelIOSPicker = () => {
+ 
+    const hidePicker = () => {
         setShowPicker(false);
     };
 
@@ -164,7 +146,7 @@ export default function ManageAvailability({ navigation }) {
             const validate = validateAvailability()
             if(!validate)
                 return
-            const token = await AsyncStorage.getItem("@AuthToken")
+            const token = await storage.getItem("@AuthToken")
             const response = await fetch(summaryAPI.updateSchedule.url, {
                 method: summaryAPI.updateSchedule.method,
                 headers: {
@@ -184,7 +166,7 @@ export default function ManageAvailability({ navigation }) {
     };
     const fetchScheduleData = async () => {
         try {
-            const token = await AsyncStorage.getItem("@AuthToken");
+            const token = await storage.getItem("@AuthToken");
             // Giả sử bạn có summaryAPI.getSchedule
             const response = await fetch(summaryAPI.getSchedule.url, {
                 method: summaryAPI.getSchedule.method,
@@ -291,55 +273,73 @@ export default function ManageAvailability({ navigation }) {
                 ))}
             </ScrollView>
 
-            {/* Picker Component */}
             {/* Picker Component logic */}
-            {Platform.OS === 'ios' ? (
+            {Platform.OS === 'web' ? (
                 <Modal
                     transparent={true}
+                    visible={showPicker}
+                    onRequestClose={hidePicker}
                     animationType="fade"
-                    visible={showPicker && pickerConfig.dayIdx !== null}
-                    onRequestClose={cancelIOSPicker}
                 >
-                    <TouchableOpacity 
-                        style={tw`flex-1 justify-end bg-black bg-opacity-40`} 
-                        activeOpacity={1} 
-                        onPress={cancelIOSPicker}
-                    >
-                        <View style={tw`bg-white rounded-t-3xl pb-8`} onStartShouldSetResponder={() => true}>
-                            {/* Toolbar */}
-                            <View style={tw`flex-row justify-between items-center p-4 border-b border-slate-100`}>
-                                <TouchableOpacity onPress={cancelIOSPicker} style={tw`p-2`}>
-                                    <Text style={tw`text-slate-500 font-medium`}>Hủy</Text>
+                    <View style={tw`flex-1 justify-center items-center bg-black/50`}>
+                        <View style={tw`bg-white p-6 rounded-3xl w-80 shadow-xl`}>
+                            <Text style={tw`text-lg font-bold mb-4 text-center text-slate-800`}>Chọn giờ</Text>
+                            
+                            {/* Sử dụng input type="time" chuẩn web */}
+                            <input 
+                                type="time" 
+                                defaultValue={tempDate instanceof Date ? tempDate.toTimeString().substring(0, 5) : "08:00"}
+                                onChange={(e) => {
+                                    const [h, m] = e.target.value.split(':');
+                                    const d = new Date();
+                                    d.setHours(parseInt(h));
+                                    d.setMinutes(parseInt(m));
+                                    setTempDate(d);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    fontSize: '18px',
+                                    borderRadius: '12px',
+                                    border: '1px solid #E2E8F0',
+                                    backgroundColor: '#F8FAFC',
+                                    marginBottom: '24px',
+                                    outline: 'none'
+                                }}
+                            />
+
+                            <View style={tw`flex-row justify-between`}>
+                                <TouchableOpacity 
+                                    onPress={hidePicker} 
+                                    style={tw`flex-1 mr-2 p-3 bg-slate-100 rounded-xl items-center`}
+                                >
+                                    <Text style={tw`text-slate-600 font-bold`}>Hủy</Text>
                                 </TouchableOpacity>
-                                <Text style={tw`font-bold text-slate-800`}>Chọn giờ</Text>
-                                <TouchableOpacity onPress={confirmIOSPicker} style={tw`p-2`}>
-                                    <Text style={tw`text-blue-600 font-bold`}>Lưu</Text>
+                                <TouchableOpacity 
+                                    onPress={() => handleConfirm(tempDate)} 
+                                    style={tw`flex-1 ml-2 p-3 bg-blue-600 rounded-xl items-center`}
+                                >
+                                    <Text style={tw`text-white font-bold`}>Chọn</Text>
                                 </TouchableOpacity>
                             </View>
-                            
-                            {/* Picker */}
-                            <DateTimePicker
-                                value={tempDate}
-                                mode="time"
-                                is24Hour={true}
-                                display="spinner"
-                                onChange={onTimeChange}
-                                textColor="black"
-                                style={tw`h-48`}
-                            />
                         </View>
-                    </TouchableOpacity>
+                    </View>
                 </Modal>
             ) : (
-                showPicker && pickerConfig.dayIdx !== null && (
-                    <DateTimePicker
-                        value={tempDate} // Use tempDate here too for Android initial value
-                        mode="time"
-                        is24Hour={true}
-                        display="default"
-                        onChange={onTimeChange}
-                    />
-                )
+                <DateTimePickerModal
+                    isVisible={showPicker}
+                    mode="time"
+                    date={tempDate}
+                    onConfirm={handleConfirm}
+                    onCancel={hidePicker}
+                    is24Hour={true}
+                    locale="vi_VN"
+                    confirmTextIOS="Chọn"
+                    cancelTextIOS="Hủy"
+                    headerTextIOS="Chọn giờ"
+                    display={Platform.OS === 'ios' ? "spinner" : "default"}
+                    textColor="black"
+                />
             )}
 
             {/* Bottom Action */}

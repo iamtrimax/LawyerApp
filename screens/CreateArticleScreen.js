@@ -4,13 +4,13 @@ import {
     Text,
     ScrollView,
     TouchableOpacity,
-    TextInput,
     Image,
     Alert,
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform
 } from 'react-native';
+import AppTextInput from '../helper/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import {
@@ -25,8 +25,9 @@ import {
 } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../utils/storage';
 import summaryAPI from '../common';
+import Constants from 'expo-constants';
 
 export default function CreateArticleScreen() {
     const navigation = useNavigation();
@@ -39,7 +40,15 @@ export default function CreateArticleScreen() {
     const [attachments, setAttachments] = useState([]);
     const [selection, setSelection] = useState({ start: 0, end: 0 });
 
-    const categories = ['Dân sự', 'Hình sự', 'Đất đai', 'Hôn nhân', 'Lao động', 'Kinh doanh', 'Khác'];
+    const categories = [
+        // Nhóm bài viết chung
+        'Dân sự', 'Hình sự', 'Đất đai', 'Hôn nhân', 'Lao động', 'Kinh doanh', 'Khác',
+        // Nhóm văn bản pháp luật
+        'Hiến pháp', 'Bộ luật', 'Luật', 'Pháp lệnh', 'Lệnh', 'Nghị quyết', 'Nghị định', 'Thông tư',
+        // Chuyên sâu Đất đai
+        'Chính sách & Quy định chung', 'Bồi thường & Giải phóng mặt bằng', 'Giá đất & Nghĩa vụ tài chính', 
+        'Thủ tục hành chính & Cấp sổ đỏ', 'Quy hoạch & Kế hoạch sử dụng đất', 'Xử phạt & Thanh tra'
+    ];
 
     const pickThumbnail = async () => {
         try {
@@ -109,13 +118,28 @@ export default function CreateArticleScreen() {
     };
 
     const uploadToCloudinary = async (asset, isRaw = false) => {
-        const cloudName = process.env.EXPO_PUBLIC_CLOUD_NAME;
+        const cloudName = Constants.expoConfig?.extra?.cloudName || process.env.EXPO_PUBLIC_CLOUD_NAME;
         const data = new FormData();
-        data.append("file", {
-            uri: asset.uri,
-            type: asset.mimeType || (isRaw ? "application/octet-stream" : "image/jpeg"),
-            name: asset.name || `article_file_${Date.now()}`,
-        });
+        
+        if (Platform.OS === 'web') {
+            // Web: Cần fetch URI để lấy Blob thực sự
+            try {
+                const response = await fetch(asset.uri);
+                const blob = await response.blob();
+                data.append("file", blob, asset.name || `file_${Date.now()}`);
+            } catch (error) {
+                console.error("Web Blob fetch error:", error);
+                return null;
+            }
+        } else {
+            // Native: Dùng cấu trúc object {uri, type, name}
+            data.append("file", {
+                uri: asset.uri,
+                type: asset.mimeType || (isRaw ? "application/octet-stream" : "image/jpeg"),
+                name: asset.name || `article_file_${Date.now()}`,
+            });
+        }
+        
         data.append("upload_preset", "lawyerPicture");
         data.append("cloud_name", cloudName);
 
@@ -127,9 +151,13 @@ export default function CreateArticleScreen() {
                 { method: "POST", body: data }
             );
             const result = await response.json();
+            if (result.error) {
+                console.error("Cloudinary API Error:", result.error);
+                return null;
+            }
             return result.secure_url;
         } catch (error) {
-            console.error("Cloudinary Upload Error:", error);
+            console.error("Cloudinary Network Error:", error);
             return null;
         }
     };
@@ -142,7 +170,7 @@ export default function CreateArticleScreen() {
 
         setLoading(true);
         try {
-            const token = await AsyncStorage.getItem("@AuthToken");
+            const token = await storage.getItem("@AuthToken");
 
             // Upload images first
             let uploadedThumbnail = "";
@@ -251,8 +279,8 @@ export default function CreateArticleScreen() {
                             <Type size={18} color="#2563EB" />
                             <Text style={tw`ml-2 font-bold text-slate-700`}>Tiêu đề bài viết *</Text>
                         </View>
-                        <TextInput
-                            style={tw`bg-slate-50 rounded-2xl p-4 text-slate-800 border border-slate-100 text-lg`}
+                        <AppTextInput
+                            style={tw`bg-slate-50 rounded-2xl p-4 border border-slate-100 text-lg`}
                             placeholder="Nhập tiêu đề hấp dẫn..."
                             value={title}
                             onChangeText={setTitle}
@@ -337,8 +365,8 @@ export default function CreateArticleScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        <TextInput
-                            style={tw`bg-slate-50 rounded-b-2xl p-4 text-slate-800 border border-slate-200 min-h-60 text-base`}
+                        <AppTextInput
+                            style={tw`bg-slate-50 rounded-b-2xl p-4 border border-slate-200 min-h-60 text-base`}
                             placeholder="Chia sẻ kiến thức pháp luật của bạn tại đây..."
                             value={content}
                             onChangeText={setContent}

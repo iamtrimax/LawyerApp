@@ -13,7 +13,7 @@ import {
     KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
+import UniversalWebView from '../components/UniversalWebView';
 import tw from 'twrnc';
 import {
     ArrowLeft,
@@ -38,7 +38,7 @@ import {
 } from 'lucide-react-native';
 import moment from 'moment';
 import summaryAPI from '../common';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../utils/storage';
 import { Alert } from 'react-native';
 
 export default function AppointmentDetailScreen({ navigation, route }) {
@@ -98,7 +98,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
 
         setCancelling(true);
         try {
-            const token = await AsyncStorage.getItem("@AuthToken");
+            const token = await storage.getItem("@AuthToken");
             const response = await fetch(summaryAPI.cancelBooking.url.replace(":bookingId", appointment._id), {
                 method: summaryAPI.cancelBooking.method,
                 headers: {
@@ -156,7 +156,13 @@ export default function AppointmentDetailScreen({ navigation, route }) {
                         </View>
                         <View style={tw`ml-4 flex-1`}>
                             <Text style={tw`text-xl font-bold text-slate-800`}>{lawyerInfo.fullname || "Luật sư"}</Text>
-                            <Text style={tw`text-blue-600 font-medium mb-1`}>{lawyer.specialty || "Chuyên gia pháp lý"}</Text>
+                            <Text style={tw`text-blue-600 font-medium mb-1`}>
+                                {Array.isArray(lawyer.specialty) 
+                                    ? lawyer.specialty.join(', ') 
+                                    : (typeof lawyer.specialty === 'string' 
+                                        ? lawyer.specialty.split(',').map(s => s.trim()).join(', ') 
+                                        : (lawyer.specialty || 'Chuyên gia pháp lý'))}
+                            </Text>
                             <View style={tw`flex-row items-center`}>
                                 <Briefcase size={14} color="#64748B" />
                                 <Text style={tw`text-slate-500 text-xs ml-1`}>{lawyer.firmName || "Văn phòng luật"}</Text>
@@ -330,7 +336,7 @@ export default function AppointmentDetailScreen({ navigation, route }) {
                                     />
                                 ) : (
                                     <View style={tw`flex-1 w-full bg-white rounded-3xl overflow-hidden shadow-2xl`}>
-                                        <WebView
+                                        <UniversalWebView
                                             source={{
                                                 uri: (Platform.OS === 'android' && typeof selectedDoc === 'string' && selectedDoc.toLowerCase().includes('.pdf'))
                                                     ? `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(selectedDoc)}`

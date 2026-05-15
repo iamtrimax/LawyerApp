@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import tw from "twrnc";
@@ -23,10 +24,13 @@ import {
   Lock,
 } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
 import InputField from "../helper/InputField";
 import { createInputChangeHandler } from "../helper/handleInputChange";
 import summaryAPI from "../common";
 import ModalError from "../components/ModalError";
+import Constants from 'expo-constants';
+import { registerForPushNotificationsAsync } from "../helper/registerForPushNotificationsAsync";
 
 export default function LawyerSignUp({ navigation }) {
   // --- States ---
@@ -36,10 +40,11 @@ export default function LawyerSignUp({ navigation }) {
     phone: "",
     lawyerId: "", // Số thẻ hành nghề
     firmName: "", // Văn phòng luật
-    specialty: "", // Chuyên môn
+    specialty: [], // Chuyên môn (mảng)
     password: "",
     lawyerCardImage: "",
-    avatar: ""
+    avatar: "",
+    referralCode: ""
   });
   const [avatarLocal, setAvatarLocal] = useState(null); // URI ảnh avatar cục bộ
   const [cardImageLocal, setCardImageLocal] = useState(null); // URI ảnh thẻ hành nghề
@@ -61,23 +66,55 @@ export default function LawyerSignUp({ navigation }) {
     if (user.phone.length < 10) tempErrors.phone = "Số điện thoại không hợp lệ";
     if (!user.lawyerId.trim())
       tempErrors.lawyerId = "Vui lòng nhập số thẻ hành nghề";
-    if (!user.specialty) tempErrors.specialty = "Vui lòng chọn chuyên môn";
+    if (!user.specialty || user.specialty.length === 0)
+      tempErrors.specialty = "Vui lòng chọn ít nhất một chuyên môn";
     if (user.password.length < 8)
       tempErrors.password = "Mật khẩu phải từ 8 ký tự trở lên";
     setErrors(tempErrors);
     return Object.keys(tempErrors).length === 0;
   };
+
+  const toggleSpecialty = (item) => {
+    setUser(prev => {
+      const current = Array.isArray(prev.specialty) ? prev.specialty : [];
+      const isSelected = current.includes(item);
+      const next = isSelected 
+        ? current.filter(i => i !== item)
+        : [...current, item];
+      return { ...prev, specialty: next };
+    });
+    if (errors.specialty) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.specialty;
+        return newErrors;
+      });
+    }
+  };
   const uploadToCloudinary = async (imageUri, signal) => {
     // 1. Tạo FormData để gửi file
-    const cloudName = process.env.EXPO_PUBLIC_CLOUD_NAME;
+    const cloudName = Constants.expoConfig?.extra?.cloudName || process.env.EXPO_PUBLIC_CLOUD_NAME;
     const data = new FormData();
-    data.append("file", {
-      uri: imageUri,
-      type: "image/jpeg", // Hoặc lấy từ mimeType của imagePicker
-      name: "lawyer_card.jpg",
-    });
-    data.append("upload_preset", "lawyerPicture"); // Thay bằng preset của bạn
-    data.append("cloud_name", cloudName); // Thay bằng cloud name của bạn
+
+    if (Platform.OS === 'web') {
+      try {
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        data.append("file", blob, "lawyer_card.jpg");
+      } catch (error) {
+        console.error("Web Blob fetch error:", error);
+        return null;
+      }
+    } else {
+      data.append("file", {
+        uri: imageUri,
+        type: "image/jpeg",
+        name: "lawyer_card.jpg",
+      });
+    }
+
+    data.append("upload_preset", "lawyerPicture"); 
+    data.append("cloud_name", cloudName); 
 
     try {
       // 2. Gọi API của Cloudinary
@@ -88,7 +125,6 @@ export default function LawyerSignUp({ navigation }) {
           body: data,
           headers: {
             Accept: "application/json",
-            "Content-Type": "multipart/form-data",
           },
           signal,
         }
@@ -126,11 +162,21 @@ export default function LawyerSignUp({ navigation }) {
         throw new Error("Tải ảnh thẻ thất bại");
       }
 
-      // 2. Gửi dữ liệu cuối cùng
+      // 2. Lấy Push Token để nhận thông báo duyệt hồ sơ
+      let pushToken = "";
+      try {
+        pushToken = await registerForPushNotificationsAsync();
+      } catch (tokenErr) {
+        console.log("Không lấy được Push Token:", tokenErr);
+      }
+
+      // 3. Gửi dữ liệu cuối cùng
       const finalData = {
         ...user,
         lawyerCardImage: cardUrl,
-        avatar: avatarUrl || "" // Nếu không chọn avatar thì để rỗng
+        avatar: avatarUrl || "", // Nếu không chọn avatar thì để rỗng
+        pushToken: pushToken,
+        referralCode: user.referralCode
       };
 
       const response = await fetch(summaryAPI.registerLawyer.url, {
@@ -148,33 +194,76 @@ export default function LawyerSignUp({ navigation }) {
       }
     } catch (error) {
       console.error(error);
-      setServerError("Có lỗi xảy ra trong quá trình xử lý hồ sơ.");
+      setServerError(`Lỗi xử lý: ${error.message}`);
       setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
   };
-  const pickImage = async (type) => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Quyền truy cập", "Chúng tôi cần quyền truy cập thư viện ảnh!");
-      return;
-    }
+  const pickCard = async () => {
+    Alert.alert(
+      "Tải lên thẻ hành nghề",
+      "Bạn muốn chọn ảnh hay file tài liệu?",
+      [
+        { text: "Chọn Ảnh", onPress: () => pickImage('card') },
+        { text: "Chọn File (PDF/Word)", onPress: () => pickDocument('card') },
+        { text: "Hủy", style: "cancel" }
+      ]
+    );
+  };
 
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: type === 'avatar' ? [1, 1] : [4, 3], // Avatar là hình vuông
-      quality: 0.7, // Giảm chất lượng một chút để upload nhanh hơn
-    });
+  const pickDocument = async (type) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'image/*'
+        ],
+      });
 
-    if (!result.canceled) {
-      const selectedUri = result.assets[0].uri;
-      if (type === 'avatar') {
-        setAvatarLocal(selectedUri);
-      } else {
+      if (!result.canceled) {
+        const selectedUri = result.assets[0].uri;
         setCardImageLocal(selectedUri);
       }
+    } catch (error) {
+      console.error("Lỗi khi chọn file:", error);
+      Alert.alert("Lỗi", "Không thể mở trình chọn file.");
+    }
+  };
+
+  const pickImage = async (type) => {
+    try {
+      console.log("Đang mở bộ chọn ảnh cho:", type);
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== "granted") {
+        const { status: retryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (retryStatus !== "granted") {
+          Alert.alert("Quyền truy cập", "Vui lòng cấp quyền truy cập thư viện ảnh trong cài đặt điện thoại để tiếp tục.");
+          return;
+        }
+      }
+
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: type === 'avatar' ? [1, 1] : [4, 3],
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        const selectedUri = result.assets[0].uri;
+        if (type === 'avatar') {
+          setAvatarLocal(selectedUri);
+        } else {
+          setCardImageLocal(selectedUri);
+        }
+      }
+    } catch (error) {
+      console.error("Lỗi khi chọn ảnh:", error);
+      Alert.alert("Lỗi", "Không thể mở thư viện ảnh. Vui lòng thử lại.");
     }
   };
   return (
@@ -301,14 +390,14 @@ export default function LawyerSignUp({ navigation }) {
               {specialties.map((item) => (
                 <TouchableOpacity
                   key={item}
-                  onPress={() => handleInputChange("specialty", item)}
-                  style={tw`px-4 py-2 rounded-xl border ${user.specialty === item
+                  onPress={() => toggleSpecialty(item)}
+                  style={tw`px-4 py-2 rounded-xl border ${user.specialty.includes(item)
                     ? "bg-blue-600 border-blue-600"
                     : "border-gray-200 bg-gray-50"
                     }`}
                 >
                   <Text
-                    style={tw`${user.specialty === item ? "text-white" : "text-gray-500"
+                    style={tw`${user.specialty.includes(item) ? "text-white" : "text-gray-500"
                       } text-xs font-bold`}
                   >
                     {item}
@@ -324,11 +413,20 @@ export default function LawyerSignUp({ navigation }) {
           </View>
 
           <InputField
-            label="Nơi công tác (Văn phòng luật)"
+            label="Văn phòng luật"
             icon={MapPin}
             user={user}
             field="firmName"
             placeholder="Tên văn phòng hoặc công ty luật"
+            handleInputChange={handleInputChange}
+          />
+          <InputField
+            label="Mã giới thiệu (Nếu có)"
+            icon={Phone}
+            user={user}
+            field="referralCode"
+            placeholder="Số điện thoại người giới thiệu"
+            keyboardType="phone-pad"
             handleInputChange={handleInputChange}
           />
 
@@ -338,7 +436,7 @@ export default function LawyerSignUp({ navigation }) {
               Ảnh thẻ hành nghề (Mặt trước)
             </Text>
             <TouchableOpacity
-              onPress={() => pickImage('card')} // Thêm 'card' vào đây
+              onPress={pickCard} 
               style={[
                 tw`border-2 border-dashed rounded-2xl h-44 items-center justify-center overflow-hidden`,
                 cardImageLocal // Đổi từ image thành cardImageLocal

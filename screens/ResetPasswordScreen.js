@@ -2,14 +2,11 @@ import React, { useState } from 'react';
 import {
     View,
     Text,
-    TextInput,
-    TouchableOpacity,
-    ScrollView,
-    Alert,
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform
 } from 'react-native';
+import AppTextInput from '../helper/AppTextInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import { ArrowLeft, Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react-native';
@@ -109,10 +106,10 @@ export default function ResetPasswordScreen({ navigation, route }) {
                             <Text style={tw`text-slate-700 font-semibold mb-2 ml-1`}>Mật khẩu mới</Text>
                             <View style={tw`flex-row items-center bg-slate-50 border border-slate-200 rounded-2xl px-4`}>
                                 <Lock size={20} color="#2563EB" />
-                                <TextInput
+                                <AppTextInput
                                     placeholder="Nhập mật khẩu mới"
                                     secureTextEntry={!showPassword.new}
-                                    style={tw`flex-1 h-14 ml-3 text-slate-800`}
+                                    style={tw`flex-1 h-14 ml-3`}
                                     value={formData.newPassword}
                                     onChangeText={(text) => setFormData({ ...formData, newPassword: text })}
                                     placeholderTextColor="#94A3B8"
@@ -128,10 +125,10 @@ export default function ResetPasswordScreen({ navigation, route }) {
                             <Text style={tw`text-slate-700 font-semibold mb-2 ml-1`}>Xác nhận mật khẩu mới</Text>
                             <View style={tw`flex-row items-center bg-slate-50 border border-slate-200 rounded-2xl px-4`}>
                                 <Lock size={20} color="#2563EB" />
-                                <TextInput
+                                <AppTextInput
                                     placeholder="Nhập lại mật khẩu mới"
                                     secureTextEntry={!showPassword.confirm}
-                                    style={tw`flex-1 h-14 ml-3 text-slate-800`}
+                                    style={tw`flex-1 h-14 ml-3`}
                                     value={formData.confirmPassword}
                                     onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
                                     placeholderTextColor="#94A3B8"

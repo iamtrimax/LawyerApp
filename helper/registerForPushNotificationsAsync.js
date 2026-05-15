@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 // Cấu hình cách hiển thị thông báo khi app đang mở
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -22,17 +22,18 @@ export async function registerForPushNotificationsAsync() {
       finalStatus = status;
     }
     if (finalStatus !== 'granted') {
-      alert('Không có quyền nhận thông báo!');
       return;
     }
 
     // Lấy token từ Expo
-    token = (await Notifications.getExpoPushTokenAsync({
-      projectId: Constants.expoConfig.extra.eas.projectId, // Lấy từ app.json
-    })).data;
-    console.log("Expo Push Token:", token);
-  } else {
-    alert('Phải dùng máy thật để nhận Push Notification');
+    try {
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId || Constants.easConfig?.projectId;
+      token = (await Notifications.getExpoPushTokenAsync({
+        projectId: projectId,
+      })).data;
+    } catch (e) {
+      // Có thể log lỗi ở đây nếu cần debug trong môi trường dev
+    }
   }
 
   if (Platform.OS === 'android') {

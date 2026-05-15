@@ -6,6 +6,7 @@ import {
   Platform,
   StatusBar,
   StyleSheet,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { User } from "lucide-react-native";
@@ -32,9 +33,11 @@ export default function Header() {
           onPress={() => navigation.navigate("Home")}
           activeOpacity={0.7}
         >
-          <Text style={tw`text-xl font-extrabold text-blue-700`}>
-            LuatSu<Text style={tw`text-yellow-500`}>Online</Text>
-          </Text>
+          <Image
+            source={require("../assets/logo-app.jpg")}
+            style={tw`w-12 h-12 rounded-lg`}
+            resizeMode="contain"
+          />
         </TouchableOpacity>
 
         {/* CỤM NÚT BẤM */}

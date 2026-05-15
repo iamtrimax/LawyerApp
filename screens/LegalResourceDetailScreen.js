@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw from 'twrnc';
 import { ArrowLeft, Clock, Share2, Paperclip, FileText, ExternalLink, Globe } from 'lucide-react-native';
-import { WebView } from 'react-native-webview';
+import UniversalWebView from '../components/UniversalWebView';
 import moment from 'moment';
 import summaryAPI from '../common';
 import { useFocusEffect } from '@react-navigation/native';
@@ -149,8 +149,8 @@ export default function LegalResourceDetailScreen({ navigation, route }) {
                             <ActivityIndicator size="large" color="#4F46E5" />
                         </View>
                     ) : (
-                        <View style={{ height: webViewHeight, overflow: 'hidden' }}>
-                            <WebView
+                    <View style={Platform.OS === 'web' ? tw`w-full` : { height: webViewHeight, overflow: 'hidden' }}>
+                            <UniversalWebView
                                 originWhitelist={['*']}
                                 source={{ html: htmlContent }}
                                 style={tw`flex-1 bg-transparent`}
